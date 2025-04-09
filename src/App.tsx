@@ -1,4 +1,5 @@
 
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,50 +12,60 @@ import LogViewer from "./pages/LogViewer";
 import Playbooks from "./pages/Playbooks";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => {
   // Simple auth check - in a real app, would use a proper auth context
   const isAuthenticated = !!localStorage.getItem('safinetUser');
   
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <Login />} />
-            
-            {/* Protected routes */}
-            <Route
-              path="/"
-              element={isAuthenticated ? 
-                <AppLayout><Dashboard /></AppLayout> : 
-                <Navigate to="/login" />
-              }
-            />
-            <Route
-              path="/logs"
-              element={isAuthenticated ? 
-                <AppLayout><LogViewer /></AppLayout> : 
-                <Navigate to="/login" />
-              }
-            />
-            <Route
-              path="/playbooks"
-              element={isAuthenticated ? 
-                <AppLayout><Playbooks /></AppLayout> : 
-                <Navigate to="/login" />
-              }
-            />
-            
-            {/* 404 Page */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <Login />} />
+              
+              {/* Protected routes */}
+              <Route
+                path="/"
+                element={isAuthenticated ? 
+                  <AppLayout><Dashboard /></AppLayout> : 
+                  <Navigate to="/login" />
+                }
+              />
+              <Route
+                path="/logs"
+                element={isAuthenticated ? 
+                  <AppLayout><LogViewer /></AppLayout> : 
+                  <Navigate to="/login" />
+                }
+              />
+              <Route
+                path="/playbooks"
+                element={isAuthenticated ? 
+                  <AppLayout><Playbooks /></AppLayout> : 
+                  <Navigate to="/login" />
+                }
+              />
+              
+              {/* 404 Page */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </React.StrictMode>
   );
 };
 
