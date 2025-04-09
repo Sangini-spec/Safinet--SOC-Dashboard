@@ -1,6 +1,6 @@
 
-import React from 'react-dom/client'
-import { createElement } from 'react'
+import React from 'react'
+import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
@@ -8,5 +8,7 @@ import './index.css'
 window.React = React;
 
 createRoot(document.getElementById("root")!).render(
-  createElement(App)
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
 );
