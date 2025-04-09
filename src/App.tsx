@@ -1,10 +1,10 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -24,10 +24,22 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => {
-  // Simple auth check - in a real app, would use a proper auth context
+// Auth check wrapper component
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const isAuthenticated = !!localStorage.getItem('safinetUser');
   
+  useEffect(() => {
+    if (!isAuthenticated && location.pathname !== '/login') {
+      navigate('/login');
+    }
+  }, [isAuthenticated, navigate, location]);
+  
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+};
+
+const App = () => {
   return (
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
@@ -38,35 +50,39 @@ const App = () => {
             <Routes>
               {/* Root path redirects to Index component which handles auth-based routing */}
               <Route path="/" element={<Index />} />
-              <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />} />
+              <Route path="/login" element={<Login />} />
               
               {/* Protected routes */}
               <Route
                 path="/dashboard"
-                element={isAuthenticated ? 
-                  <AppLayout><Dashboard /></AppLayout> : 
-                  <Navigate to="/login" />
+                element={
+                  <ProtectedRoute>
+                    <AppLayout><Dashboard /></AppLayout>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/logs"
-                element={isAuthenticated ? 
-                  <AppLayout><LogViewer /></AppLayout> : 
-                  <Navigate to="/login" />
+                element={
+                  <ProtectedRoute>
+                    <AppLayout><LogViewer /></AppLayout>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/playbooks"
-                element={isAuthenticated ? 
-                  <AppLayout><Playbooks /></AppLayout> : 
-                  <Navigate to="/login" />
+                element={
+                  <ProtectedRoute>
+                    <AppLayout><Playbooks /></AppLayout>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/settings"
-                element={isAuthenticated ? 
-                  <AppLayout><Settings /></AppLayout> : 
-                  <Navigate to="/login" />
+                element={
+                  <ProtectedRoute>
+                    <AppLayout><Settings /></AppLayout>
+                  </ProtectedRoute>
                 }
               />
               
