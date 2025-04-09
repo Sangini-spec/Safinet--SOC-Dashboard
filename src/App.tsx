@@ -12,6 +12,7 @@ import LogViewer from "./pages/LogViewer";
 import Playbooks from "./pages/Playbooks";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
+import Settings from "./pages/Settings";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -58,6 +59,13 @@ const App = () => {
                 path="/playbooks"
                 element={isAuthenticated ? 
                   <AppLayout><Playbooks /></AppLayout> : 
+                  <Navigate to="/login" />
+                }
+              />
+              <Route
+                path="/settings"
+                element={isAuthenticated ? 
+                  <AppLayout><Settings /></AppLayout> : 
                   <Navigate to="/login" />
                 }
               />

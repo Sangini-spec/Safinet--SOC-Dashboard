@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -53,9 +54,24 @@ const NavItem = ({ to, icon, label, notifications, isMobile, onClick }: NavItemP
 const Sidebar = () => {
   const [expanded, setExpanded] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleLogout = () => {
+    // Clear authentication data
+    localStorage.removeItem('safinetUser');
+    
+    toast({
+      title: "Logged out successfully",
+      description: "You have been logged out of SafiNet",
+    });
+    
+    // Navigate to login page
+    navigate('/login');
+  };
 
   const navItems = [
-    { to: '/', icon: <LayoutDashboard className="h-5 w-5" />, label: 'Dashboard', notifications: 3 },
+    { to: '/dashboard', icon: <LayoutDashboard className="h-5 w-5" />, label: 'Dashboard', notifications: 3 },
     { to: '/incidents', icon: <AlertTriangle className="h-5 w-5" />, label: 'Incidents' },
     { to: '/playbooks', icon: <BookOpen className="h-5 w-5" />, label: 'Playbooks' },
     { to: '/logs', icon: <FileText className="h-5 w-5" />, label: 'Log Viewer' },
@@ -92,7 +108,11 @@ const Sidebar = () => {
         
         <div className="p-2 border-t border-border">
           <NavItem to="/settings" icon={<Settings className="h-5 w-5" />} label="Settings" />
-          <Button variant="ghost" className="w-full justify-start px-3 py-2 rounded-md text-sm font-medium mt-1">
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start px-3 py-2 rounded-md text-sm font-medium mt-1"
+            onClick={handleLogout}
+          >
             <LogOut className="h-5 w-5" />
             <span className="ml-3">Logout</span>
           </Button>
