@@ -1,17 +1,23 @@
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import React from 'react';
+import { 
+  Card, 
+  CardContent, 
+  CardFooter
+} from "@/components/ui/card";
+import { ArrowUp, ArrowDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface StatCardProps {
   title: string;
   value: string | number;
-  description?: string;
+  description: string;
   icon: React.ReactNode;
-  className?: string;
   trend?: {
     value: number;
     isPositive: boolean;
   };
+  className?: string;
 }
 
 const StatCard = ({
@@ -19,29 +25,34 @@ const StatCard = ({
   value,
   description,
   icon,
-  className,
-  trend
+  trend,
+  className
 }: StatCardProps) => {
   return (
     <Card className={cn("glass-card", className)}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center text-muted-foreground">
-          {icon}
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between">
+          <div className="rounded-md p-2 bg-muted/50">
+            {icon}
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <p className="text-2xl font-bold">{value}</p>
+          </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        {description && (
-          <p className="text-xs text-muted-foreground mt-1">{description}</p>
-        )}
+      </CardContent>
+      <CardFooter className="flex justify-between text-xs text-muted-foreground">
+        <p>{description}</p>
         {trend && (
-          <div className={`flex items-center mt-2 text-xs ${trend.isPositive ? 'text-green-500' : 'text-safinet-red'}`}>
-            <span className="mr-1">{trend.isPositive ? '↑' : '↓'}</span>
-            <span>{trend.value}% from last week</span>
+          <div className={cn(
+            "flex items-center",
+            trend.isPositive ? "text-green-500" : "text-safinet-red"
+          )}>
+            {trend.isPositive ? <ArrowUp className="h-3 w-3 mr-1" /> : <ArrowDown className="h-3 w-3 mr-1" />}
+            {trend.value}%
           </div>
         )}
-      </CardContent>
+      </CardFooter>
     </Card>
   );
 };
