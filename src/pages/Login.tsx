@@ -42,7 +42,7 @@ const Login = () => {
           role: 'admin',
           name: 'Admin User'
         }));
-        navigate('/');
+        navigate('/dashboard');
       } else {
         setError('Invalid email or password');
       }

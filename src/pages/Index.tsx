@@ -9,7 +9,7 @@ const Index = () => {
     // Redirect to dashboard or login based on authentication status
     const isAuthenticated = !!localStorage.getItem('safinetUser');
     if (isAuthenticated) {
-      navigate('/');
+      navigate('/dashboard');
     } else {
       navigate('/login');
     }

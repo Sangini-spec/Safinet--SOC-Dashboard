@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import LogViewer from "./pages/LogViewer";
 import Playbooks from "./pages/Playbooks";
 import NotFound from "./pages/NotFound";
+import Index from "./pages/Index";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -34,11 +35,13 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <Login />} />
+              {/* Root path redirects to Index component which handles auth-based routing */}
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />} />
               
               {/* Protected routes */}
               <Route
-                path="/"
+                path="/dashboard"
                 element={isAuthenticated ? 
                   <AppLayout><Dashboard /></AppLayout> : 
                   <Navigate to="/login" />
