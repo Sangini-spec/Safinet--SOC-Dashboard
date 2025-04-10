@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -7,6 +8,7 @@ import { Search, Bell, Menu, X, Shield } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 
 const Header = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mode, setMode] = useState("test");
@@ -23,6 +25,10 @@ const Header = () => {
     });
   };
 
+  const navigateToDashboard = () => {
+    navigate('/dashboard');
+  };
+
   return (
     <header className="border-b border-border">
       <div className="flex items-center justify-between p-4">
@@ -32,7 +38,10 @@ const Header = () => {
           </Button>
         </div>
         
-        <div className="hidden md:flex items-center gap-2">
+        <div 
+          className="hidden md:flex items-center gap-2 cursor-pointer" 
+          onClick={navigateToDashboard}
+        >
           <Shield className="h-6 w-6 text-safinet-purple" />
           <h1 className="font-bold text-xl">SafiNet</h1>
         </div>
@@ -65,6 +74,13 @@ const Header = () => {
       {isMenuOpen && (
         <div className="block md:hidden border-t border-border p-4">
           <div className="flex flex-col gap-4">
+            <div 
+              className="flex items-center gap-2 cursor-pointer" 
+              onClick={navigateToDashboard}
+            >
+              <Shield className="h-6 w-6 text-safinet-purple" />
+              <h1 className="font-bold text-xl">SafiNet</h1>
+            </div>
             <ToggleGroup type="single" value={mode} onValueChange={handleModeChange}>
               <ToggleGroupItem value="test">Test Mode</ToggleGroupItem>
               <ToggleGroupItem value="live">Live Mode</ToggleGroupItem>

@@ -13,7 +13,8 @@ import {
   LogOut, 
   Brain, 
   AlertTriangle,
-  Cpu
+  Cpu,
+  FileEdit
 } from 'lucide-react';
 
 interface NavItemProps {
@@ -76,8 +77,9 @@ const Sidebar = () => {
     { to: '/playbooks', icon: <BookOpen className="h-5 w-5" />, label: 'Playbooks' },
     { to: '/logs', icon: <FileText className="h-5 w-5" />, label: 'Log Viewer' },
     { to: '/detection', icon: <Brain className="h-5 w-5" />, label: 'Anomaly Detection' },
-    { to: '/integrations', icon: <Cpu className="h-5 w-5" />, label: 'Integrations' },
     { to: '/analytics', icon: <LineChart className="h-5 w-5" />, label: 'Analytics' },
+    { to: '/reports', icon: <FileEdit className="h-5 w-5" />, label: 'Create Reports' },
+    { to: '/integrations', icon: <Cpu className="h-5 w-5" />, label: 'Integrations' },
   ];
 
   return (

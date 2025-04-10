@@ -13,6 +13,9 @@ import Playbooks from "./pages/Playbooks";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import Settings from "./pages/Settings";
+import AnomalyDetection from "./pages/AnomalyDetection";
+import Analytics from "./pages/Analytics";
+import Reports from "./pages/Reports";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -82,6 +85,30 @@ const App = () => {
                 element={
                   <ProtectedRoute>
                     <AppLayout><Settings /></AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/detection"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout><AnomalyDetection /></AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/analytics"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout><Analytics /></AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout><Reports /></AppLayout>
                   </ProtectedRoute>
                 }
               />
