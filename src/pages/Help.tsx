@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Shield, AlertTriangle, InfoIcon, Phone } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
 
-const Settings = () => {
+const Help = () => {
   const securityTips = [
     {
       title: "Use Strong, Unique Passwords",
@@ -71,7 +71,7 @@ const Settings = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Settings & Security Resources</h1>
+      <h1 className="text-2xl font-bold">Help & Security Resources</h1>
       
       <Card className="glass-card">
         <CardHeader>
@@ -139,4 +139,4 @@ const Settings = () => {
   );
 };
 
-export default Settings;
+export default Help;

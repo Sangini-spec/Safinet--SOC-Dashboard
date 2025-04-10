@@ -14,7 +14,8 @@ import {
   Brain, 
   AlertTriangle,
   Cpu,
-  FileEdit
+  FileEdit,
+  HelpCircle
 } from 'lucide-react';
 
 interface NavItemProps {
@@ -109,7 +110,7 @@ const Sidebar = () => {
         </div>
         
         <div className="p-2 border-t border-border">
-          <NavItem to="/settings" icon={<Settings className="h-5 w-5" />} label="Settings" />
+          <NavItem to="/help" icon={<HelpCircle className="h-5 w-5" />} label="Help" />
           <Button 
             variant="ghost" 
             className="w-full justify-start px-3 py-2 rounded-md text-sm font-medium mt-1"

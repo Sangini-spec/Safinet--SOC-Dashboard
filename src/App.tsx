@@ -12,7 +12,7 @@ import LogViewer from "./pages/LogViewer";
 import Playbooks from "./pages/Playbooks";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
-import Settings from "./pages/Settings";
+import Help from "./pages/Help";
 import AnomalyDetection from "./pages/AnomalyDetection";
 import Analytics from "./pages/Analytics";
 import Reports from "./pages/Reports";
@@ -75,10 +75,10 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/settings"
+        path="/help"
         element={
           <ProtectedRoute>
-            <AppLayout><Settings /></AppLayout>
+            <AppLayout><Help /></AppLayout>
           </ProtectedRoute>
         }
       />

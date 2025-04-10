@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { FileText, Download, Send, Copy, Plus, Pencil, Eye, Clock, Check, Share2, Bluetooth, Smartphone, Mail } from 'lucide-react';
+import { FileText, Download, Send, Copy, Plus, Pencil, Eye, Clock, Check, Share2, Bluetooth, Smartphone, Mail, MessageSquare } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -112,7 +111,7 @@ const Reports = () => {
 [Brief overview of assessment findings]
 
 ## Assessment Scope
-- **Systems Assessed**: [List of systems]
+- **Systems Assessed**: [List systems]
 - **Assessment Period**: [Start date] to [End date]
 - **Assessment Methods**: [Methods used]
 
@@ -238,7 +237,6 @@ const Reports = () => {
       return;
     }
 
-    // Create a temporary div for rendering the report content
     const reportDiv = document.createElement('div');
     reportDiv.style.padding = '20px';
     reportDiv.style.fontFamily = 'Arial, sans-serif';
@@ -246,7 +244,6 @@ const Reports = () => {
     reportDiv.style.position = 'absolute';
     reportDiv.style.left = '-9999px';
     
-    // Format the markdown content as simple HTML
     const formattedContent = reportContent
       .replace(/^# (.*$)/gm, '<h1>$1</h1>')
       .replace(/^## (.*$)/gm, '<h2>$1</h2>')
@@ -260,7 +257,6 @@ const Reports = () => {
     document.body.appendChild(reportDiv);
     
     try {
-      // Generate PDF
       const pdf = new jsPDF('p', 'pt', 'a4');
       const canvas = await html2canvas(reportDiv);
       const imgData = canvas.toDataURL('image/png');
@@ -291,7 +287,6 @@ const Reports = () => {
         y += pdfHeight;
       }
       
-      // Save the PDF
       const filename = `${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(filename);
       
@@ -307,7 +302,6 @@ const Reports = () => {
         variant: "destructive",
       });
     } finally {
-      // Clean up the temporary div
       document.body.removeChild(reportDiv);
     }
   };
@@ -322,15 +316,33 @@ const Reports = () => {
       return;
     }
     
-    // Open share dialog
     setShowShareDialog(true);
   };
-  
-  const shareVia = (method: string) => {
-    // In a real app, this would use the Web Share API or native sharing capabilities
-    // For this demo, we'll just show a toast
+
+  const handleShareViaWhatsApp = () => {
+    if (!reportTitle || !reportContent) {
+      toast({
+        title: "Error",
+        description: "Please ensure your report has both a title and content",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const text = encodeURIComponent(`*${reportTitle}*\n\n${reportContent.substring(0, 100)}...`);
+    const whatsappUrl = `https://web.whatsapp.com/send?text=${text}`;
+    
+    window.open(whatsappUrl, '_blank');
+    
     setShowShareDialog(false);
     
+    toast({
+      title: "Opening WhatsApp",
+      description: "WhatsApp web is opening in a new tab for sharing",
+    });
+  };
+
+  const shareVia = (method: string) => {
     if (navigator.share && method === 'native') {
       navigator.share({
         title: reportTitle,
@@ -360,7 +372,6 @@ const Reports = () => {
   };
 
   const requestPermission = () => {
-    // Simulating permission request
     toast({
       title: "Permission Request",
       description: "Permission requested to access contacts and sharing capabilities.",
@@ -533,7 +544,6 @@ const Reports = () => {
         </TabsContent>
       </Tabs>
       
-      {/* Share Dialog */}
       <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -544,9 +554,9 @@ const Reports = () => {
           </DialogHeader>
           
           <div className="grid grid-cols-2 gap-4 py-4">
-            <Button variant="outline" className="flex flex-col items-center justify-center h-24" onClick={() => shareVia('WhatsApp')}>
+            <Button variant="outline" className="flex flex-col items-center justify-center h-24" onClick={handleShareViaWhatsApp}>
               <div className="rounded-full bg-green-100 p-2 mb-2">
-                <Share2 className="h-6 w-6 text-green-600" />
+                <MessageSquare className="h-6 w-6 text-green-600" />
               </div>
               <span>WhatsApp</span>
             </Button>
