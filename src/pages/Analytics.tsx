@@ -261,7 +261,7 @@ const Analytics = () => {
                           strokeWidth={2}
                           dot={{ r: 4 }}
                           activeDot={{ r: 8 }}
-                          strokeDasharray={entry => entry.projected ? "5 5" : "0"} // Fix: This line is causing the error
+                          strokeDasharray={timelineData.map(entry => entry.projected ? "5 5" : "0")}
                         />
                       </LineChart>
                     </ResponsiveContainer>
@@ -482,3 +482,4 @@ const Analytics = () => {
 };
 
 export default Analytics;
+
