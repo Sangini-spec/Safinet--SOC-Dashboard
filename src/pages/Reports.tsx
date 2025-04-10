@@ -7,7 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { FileText, Download, Send, Copy, Plus, Pencil, Eye, Clock, Check } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { FileText, Download, Send, Copy, Plus, Pencil, Eye, Clock, Check, Share2, Bluetooth, Smartphone, Mail } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const Reports = () => {
   const { toast } = useToast();
@@ -15,6 +18,7 @@ const Reports = () => {
   const [activeTab, setActiveTab] = useState("templates");
   const [reportTitle, setReportTitle] = useState("");
   const [reportContent, setReportContent] = useState("");
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const [draftReports, setDraftReports] = useState<{id: number, title: string, date: string, status: string}[]>([
     {id: 1, title: "Monthly Security Review - September", date: "2023-09-30", status: "draft"},
     {id: 2, title: "Incident Response Report - DDos Attack", date: "2023-10-05", status: "draft"},
@@ -224,7 +228,7 @@ const Reports = () => {
     });
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!reportTitle || !reportContent) {
       toast({
         title: "Error",
@@ -234,12 +238,78 @@ const Reports = () => {
       return;
     }
 
-    // In a real app, this would create a downloadable file
-    // For now, we'll just show a toast
-    toast({
-      title: "Report Exported",
-      description: "Your report has been exported as a PDF file",
-    });
+    // Create a temporary div for rendering the report content
+    const reportDiv = document.createElement('div');
+    reportDiv.style.padding = '20px';
+    reportDiv.style.fontFamily = 'Arial, sans-serif';
+    reportDiv.style.width = '700px';
+    reportDiv.style.position = 'absolute';
+    reportDiv.style.left = '-9999px';
+    
+    // Format the markdown content as simple HTML
+    const formattedContent = reportContent
+      .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+      .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+      .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/\n- /g, '<br/>• ')
+      .replace(/\n/g, '<br/>');
+    
+    reportDiv.innerHTML = `<h1>${reportTitle}</h1>${formattedContent}`;
+    document.body.appendChild(reportDiv);
+    
+    try {
+      // Generate PDF
+      const pdf = new jsPDF('p', 'pt', 'a4');
+      const canvas = await html2canvas(reportDiv);
+      const imgData = canvas.toDataURL('image/png');
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      
+      let y = 0;
+      const imgPages = Math.ceil(imgHeight * ratio / pdfHeight);
+      
+      for (let i = 0; i < imgPages; i++) {
+        if (i > 0) {
+          pdf.addPage();
+        }
+        
+        pdf.addImage(
+          imgData,
+          'PNG',
+          0,
+          y * ratio * -1,
+          imgWidth * ratio,
+          imgHeight * ratio
+        );
+        
+        y += pdfHeight;
+      }
+      
+      // Save the PDF
+      const filename = `${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      pdf.save(filename);
+      
+      toast({
+        title: "Report Exported",
+        description: `Your report "${reportTitle}" has been exported as a PDF file`,
+      });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({
+        title: "Export Failed",
+        description: "There was an error exporting your report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      // Clean up the temporary div
+      document.body.removeChild(reportDiv);
+    }
   };
 
   const handleShareReport = () => {
@@ -251,13 +321,57 @@ const Reports = () => {
       });
       return;
     }
-
-    // In a real app, this would open a modal to select contacts
-    // For now, we'll just show a toast
+    
+    // Open share dialog
+    setShowShareDialog(true);
+  };
+  
+  const shareVia = (method: string) => {
+    // In a real app, this would use the Web Share API or native sharing capabilities
+    // For this demo, we'll just show a toast
+    setShowShareDialog(false);
+    
+    if (navigator.share && method === 'native') {
+      navigator.share({
+        title: reportTitle,
+        text: `Security Report: ${reportTitle}`,
+      })
+      .then(() => {
+        toast({
+          title: "Report Shared",
+          description: "Your report was shared successfully",
+        });
+      })
+      .catch(error => {
+        console.error('Error sharing:', error);
+        toast({
+          title: "Sharing Failed",
+          description: "There was an error sharing your report",
+          variant: "destructive",
+        });
+      });
+      return;
+    }
+    
     toast({
       title: "Report Shared",
-      description: "Your report has been shared with selected contacts",
+      description: `Your report has been shared via ${method}`,
     });
+  };
+
+  const requestPermission = () => {
+    // Simulating permission request
+    toast({
+      title: "Permission Request",
+      description: "Permission requested to access contacts and sharing capabilities.",
+    });
+    
+    setTimeout(() => {
+      toast({
+        title: "Permission Granted",
+        description: "Access to contacts and sharing capabilities has been granted.",
+      });
+    }, 1500);
   };
 
   return (
@@ -339,11 +453,11 @@ const Reports = () => {
                         <Button size="sm" variant="outline">
                           <Eye className="h-3 w-3 mr-1" /> Preview
                         </Button>
-                        <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline" onClick={handleExport}>
                           <Download className="h-3 w-3 mr-1" /> Export
                         </Button>
-                        <Button size="sm" variant="outline">
-                          <Send className="h-3 w-3 mr-1" /> Share
+                        <Button size="sm" variant="outline" onClick={handleShareReport}>
+                          <Share2 className="h-3 w-3 mr-1" /> Share
                         </Button>
                       </div>
                     </CardFooter>
@@ -411,13 +525,64 @@ const Reports = () => {
                   <Download className="mr-2 h-4 w-4" /> Export
                 </Button>
                 <Button onClick={handleShareReport}>
-                  <Send className="mr-2 h-4 w-4" /> Share Report
+                  <Share2 className="mr-2 h-4 w-4" /> Share Report
                 </Button>
               </div>
             </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
+      
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share Report</DialogTitle>
+            <DialogDescription>
+              Choose how you want to share your report
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <Button variant="outline" className="flex flex-col items-center justify-center h-24" onClick={() => shareVia('WhatsApp')}>
+              <div className="rounded-full bg-green-100 p-2 mb-2">
+                <Share2 className="h-6 w-6 text-green-600" />
+              </div>
+              <span>WhatsApp</span>
+            </Button>
+            
+            <Button variant="outline" className="flex flex-col items-center justify-center h-24" onClick={() => shareVia('Bluetooth')}>
+              <div className="rounded-full bg-blue-100 p-2 mb-2">
+                <Bluetooth className="h-6 w-6 text-blue-600" />
+              </div>
+              <span>Bluetooth</span>
+            </Button>
+            
+            <Button variant="outline" className="flex flex-col items-center justify-center h-24" onClick={() => shareVia('Nearby Share')}>
+              <div className="rounded-full bg-purple-100 p-2 mb-2">
+                <Smartphone className="h-6 w-6 text-purple-600" />
+              </div>
+              <span>Nearby Share</span>
+            </Button>
+            
+            <Button variant="outline" className="flex flex-col items-center justify-center h-24" onClick={() => shareVia('Email')}>
+              <div className="rounded-full bg-amber-100 p-2 mb-2">
+                <Mail className="h-6 w-6 text-amber-600" />
+              </div>
+              <span>Email</span>
+            </Button>
+          </div>
+
+          <DialogFooter>
+            <Button variant="secondary" onClick={requestPermission}>
+              Request Permissions
+            </Button>
+            <Button variant="outline" onClick={() => setShowShareDialog(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
