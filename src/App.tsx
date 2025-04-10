@@ -1,5 +1,5 @@
 
-import React, { useEffect } from "react";
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -33,7 +33,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const isAuthenticated = !!localStorage.getItem('safinetUser');
   
-  useEffect(() => {
+  React.useEffect(() => {
     if (!isAuthenticated && location.pathname !== '/login') {
       navigate('/login');
     }
@@ -42,82 +42,88 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 };
 
+const AppRoutes = () => {
+  return (
+    <Routes>
+      {/* Root path redirects to Index component which handles auth-based routing */}
+      <Route path="/" element={<Index />} />
+      <Route path="/login" element={<Login />} />
+      
+      {/* Protected routes */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <AppLayout><Dashboard /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/logs"
+        element={
+          <ProtectedRoute>
+            <AppLayout><LogViewer /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/playbooks"
+        element={
+          <ProtectedRoute>
+            <AppLayout><Playbooks /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <AppLayout><Settings /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/detection"
+        element={
+          <ProtectedRoute>
+            <AppLayout><AnomalyDetection /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute>
+            <AppLayout><Analytics /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute>
+            <AppLayout><Reports /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* 404 Page */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+};
+
 const App = () => {
   return (
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              {/* Root path redirects to Index component which handles auth-based routing */}
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              
-              {/* Protected routes */}
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout><Dashboard /></AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/logs"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout><LogViewer /></AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/playbooks"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout><Playbooks /></AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout><Settings /></AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/detection"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout><AnomalyDetection /></AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/analytics"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout><Analytics /></AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/reports"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout><Reports /></AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              
-              {/* 404 Page */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+        <BrowserRouter>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <AppRoutes />
+          </TooltipProvider>
+        </BrowserRouter>
       </QueryClientProvider>
     </React.StrictMode>
   );

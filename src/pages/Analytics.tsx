@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -261,7 +260,7 @@ const Analytics = () => {
                           strokeWidth={2}
                           dot={{ r: 4 }}
                           activeDot={{ r: 8 }}
-                          strokeDasharray={timelineData.map(entry => entry.projected ? "5 5" : "0")}
+                          strokeDasharray="0"
                         />
                       </LineChart>
                     </ResponsiveContainer>
@@ -482,4 +481,3 @@ const Analytics = () => {
 };
 
 export default Analytics;
-
