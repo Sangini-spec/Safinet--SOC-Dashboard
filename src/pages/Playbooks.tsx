@@ -76,16 +76,13 @@ const Playbooks = () => {
   const handleExportSteps = async () => {
     if (!activePlaybook) return;
 
-    // Get the content div to export
-    const exportContent = document.getElementById('playbook-export-content');
-    if (!exportContent) return;
-
     try {
       // Create a temporary wrapper with white background and good spacing
       const tempWrapper = document.createElement('div');
       tempWrapper.style.padding = '20px';
       tempWrapper.style.background = 'white';
       tempWrapper.style.width = '700px';
+      tempWrapper.style.fontFamily = 'Arial, sans-serif';
       tempWrapper.innerHTML = `
         <h1 style="font-size: 24px; margin-bottom: 15px; color: #333;">${activePlaybook.title} Playbook</h1>
         <p style="margin-bottom: 10px; color: #666;">Assigned to: ${activePlaybook.assignee}</p>
@@ -94,7 +91,7 @@ const Playbooks = () => {
         <h2 style="font-size: 18px; margin: 15px 0; color: #333;">Response Steps:</h2>
       `;
 
-      // Create a list of steps with checkboxes
+      // Create a list of steps with checkboxes and ensure headings are properly styled
       const stepsList = document.createElement('div');
       activePlaybook.steps.forEach((step, index) => {
         const stepElement = document.createElement('div');
@@ -103,14 +100,15 @@ const Playbooks = () => {
         stepElement.style.border = '1px solid #eee';
         stepElement.style.borderRadius = '4px';
         
+        // Ensure the step title is styled as a heading and stands out
         stepElement.innerHTML = `
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <div style="width: 20px; height: 20px; border: 1px solid #999; border-radius: 4px; display: flex; align-items: center; justify-content: center; background: ${step.completed ? '#4c6ef5' : 'white'}">
+          <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <div style="width: 20px; height: 20px; border: 1px solid #999; border-radius: 4px; display: flex; align-items: center; justify-content: center; background: ${step.completed ? '#4c6ef5' : 'white'}; margin-top: 3px;">
               ${step.completed ? '✓' : ''}
             </div>
-            <div>
-              <p style="font-weight: 500; margin: 0; ${step.completed ? 'text-decoration: line-through; opacity: 0.7;' : ''}">${step.title}</p>
-              <p style="color: #666; font-size: 13px; margin: 5px 0 0 0;">
+            <div style="width: 100%;">
+              <h3 style="font-weight: 600; margin: 0 0 8px 0; font-size: 16px; color: #333;">${step.title}</h3>
+              <p style="color: #666; font-size: 14px; margin: 5px 0 0 0; line-height: 1.4;">
                 ${index === 0 ? "Immediately isolate affected systems to prevent further spread of the threat." : 
                   index === 1 ? "Document all affected systems and determine the blast radius of the incident." :
                   index === 2 ? "Notify key stakeholders including management, legal, and PR teams." :
@@ -149,7 +147,9 @@ const Playbooks = () => {
         scale: 2, // Higher scale for better quality
         backgroundColor: '#ffffff',
         logging: false,
-        useCORS: true
+        useCORS: true,
+        allowTaint: true, // Allow content from other domains
+        removeContainer: true // Clean up the temporarily created container
       });
 
       // Remove the temporary element
