@@ -11,7 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getPlaybooks } from '@/services/mockData';
-import { BookOpen, ArrowRight, UserCircle } from 'lucide-react';
+import { BookOpen, ArrowRight, UserCircle, Download } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 interface Step {
   title: string;
@@ -51,6 +54,127 @@ const Playbooks = () => {
     );
     
     setPlaybooks(updatedPlaybooks);
+  };
+
+  const handleMarkAllComplete = () => {
+    if (!activePlaybook) return;
+
+    const updatedPlaybook = {
+      ...activePlaybook,
+      steps: activePlaybook.steps.map(step => ({ ...step, completed: true }))
+    };
+
+    setActivePlaybook(updatedPlaybook);
+    
+    const updatedPlaybooks = playbooks.map((playbook) => 
+      playbook.id === activePlaybook.id ? updatedPlaybook : playbook
+    );
+    
+    setPlaybooks(updatedPlaybooks);
+  };
+
+  const handleExportSteps = async () => {
+    if (!activePlaybook) return;
+
+    // Get the content div to export
+    const exportContent = document.getElementById('playbook-export-content');
+    if (!exportContent) return;
+
+    try {
+      // Create a temporary wrapper with white background and good spacing
+      const tempWrapper = document.createElement('div');
+      tempWrapper.style.padding = '20px';
+      tempWrapper.style.background = 'white';
+      tempWrapper.style.width = '700px';
+      tempWrapper.innerHTML = `
+        <h1 style="font-size: 24px; margin-bottom: 15px; color: #333;">${activePlaybook.title} Playbook</h1>
+        <p style="margin-bottom: 10px; color: #666;">Assigned to: ${activePlaybook.assignee}</p>
+        <p style="margin-bottom: 15px; color: #666;">Severity: ${activePlaybook.severity}</p>
+        <hr style="margin: 15px 0; border: 0; border-top: 1px solid #ddd;" />
+        <h2 style="font-size: 18px; margin: 15px 0; color: #333;">Response Steps:</h2>
+      `;
+
+      // Create a list of steps with checkboxes
+      const stepsList = document.createElement('div');
+      activePlaybook.steps.forEach((step, index) => {
+        const stepElement = document.createElement('div');
+        stepElement.style.padding = '10px';
+        stepElement.style.marginBottom = '10px';
+        stepElement.style.border = '1px solid #eee';
+        stepElement.style.borderRadius = '4px';
+        
+        stepElement.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 20px; height: 20px; border: 1px solid #999; border-radius: 4px; display: flex; align-items: center; justify-content: center; background: ${step.completed ? '#4c6ef5' : 'white'}">
+              ${step.completed ? '✓' : ''}
+            </div>
+            <div>
+              <p style="font-weight: 500; margin: 0; ${step.completed ? 'text-decoration: line-through; opacity: 0.7;' : ''}">${step.title}</p>
+              <p style="color: #666; font-size: 13px; margin: 5px 0 0 0;">
+                ${index === 0 ? "Immediately isolate affected systems to prevent further spread of the threat." : 
+                  index === 1 ? "Document all affected systems and determine the blast radius of the incident." :
+                  index === 2 ? "Notify key stakeholders including management, legal, and PR teams." :
+                  index === 3 ? "Follow your backup restoration procedures to recover clean systems." :
+                  "Document lessons learned and update security measures to prevent recurrence."}
+              </p>
+            </div>
+          </div>
+        `;
+        stepsList.appendChild(stepElement);
+      });
+
+      tempWrapper.appendChild(stepsList);
+
+      // Add completion status
+      const completionStatus = document.createElement('div');
+      completionStatus.style.marginTop = '20px';
+      completionStatus.style.padding = '10px';
+      completionStatus.style.backgroundColor = '#f5f5f5';
+      completionStatus.style.borderRadius = '4px';
+
+      const completedSteps = activePlaybook.steps.filter(step => step.completed).length;
+      const progressPercentage = Math.round((completedSteps / activePlaybook.steps.length) * 100);
+      
+      completionStatus.innerHTML = `
+        <p style="margin: 0; font-weight: 500;">Completion Status: ${progressPercentage}%</p>
+      `;
+      
+      tempWrapper.appendChild(completionStatus);
+
+      // Add the temp wrapper to the DOM temporarily
+      document.body.appendChild(tempWrapper);
+
+      // Generate canvas from the temp wrapper
+      const canvas = await html2canvas(tempWrapper, {
+        scale: 2, // Higher scale for better quality
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true
+      });
+
+      // Remove the temporary element
+      document.body.removeChild(tempWrapper);
+
+      // Create PDF with A4 dimensions
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      // Calculate the height and width to maintain aspect ratio
+      const imgWidth = 210; // A4 width in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // Add the image to the PDF
+      const imgData = canvas.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      
+      // Download the PDF
+      pdf.save(`${activePlaybook.title.replace(/\s+/g, '_')}_playbook.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    }
   };
 
   const getCompletionPercentage = (steps: Step[]) => {
@@ -153,7 +277,7 @@ const Playbooks = () => {
                   </div>
                 </div>
                 
-                <div>
+                <div id="playbook-export-content">
                   <h3 className="text-sm font-medium mb-2">Response Steps</h3>
                   <div className="space-y-3">
                     {activePlaybook.steps.map((step, index) => (
@@ -189,8 +313,30 @@ const Playbooks = () => {
                 </div>
                 
                 <div className="flex gap-2 pt-4">
-                  <Button>Mark Complete</Button>
-                  <Button variant="outline">Export Steps</Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button onClick={handleMarkAllComplete}>Mark Complete</Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Mark all steps as complete</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="outline" onClick={handleExportSteps}>
+                          <Download className="h-4 w-4 mr-2" />
+                          Export Steps
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Download steps as PDF</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </CardContent>
             </Card>
