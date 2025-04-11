@@ -317,6 +317,8 @@ const Reports = () => {
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       
+      const pdfHeight = pageHeight - 40;
+      
       const canvas = await html2canvas(reportDiv, {
         scale: 2,
         useCORS: true,
