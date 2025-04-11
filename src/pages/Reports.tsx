@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { FileText, Download, Send, Copy, Plus, Pencil, Eye, Clock, Check, Share2, Bluetooth, Smartphone, Mail, MessageSquare } from 'lucide-react';
+import { FileText, Download, Plus, Pencil, Eye, Clock, Check } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -17,12 +16,28 @@ const Reports = () => {
   const [activeTab, setActiveTab] = useState("templates");
   const [reportTitle, setReportTitle] = useState("");
   const [reportContent, setReportContent] = useState("");
-  const [showShareDialog, setShowShareDialog] = useState(false);
-  const [draftReports, setDraftReports] = useState<{id: number, title: string, date: string, status: string}[]>([
-    {id: 1, title: "Monthly Security Review - September", date: "2023-09-30", status: "draft"},
-    {id: 2, title: "Incident Response Report - DDos Attack", date: "2023-10-05", status: "draft"},
-    {id: 3, title: "Security Audit Findings", date: "2023-10-12", status: "completed"}
+  const [reportType, setReportType] = useState("");
+  const [draftReports, setDraftReports] = useState<{id: number, title: string, date: string, status: string, content: string, type: string}[]>([
+    {id: 1, title: "Monthly Security Review - September", date: "2023-09-30", status: "draft", content: "", type: "monthly"},
+    {id: 2, title: "Incident Response Report - DDos Attack", date: "2023-10-05", status: "draft", content: "", type: "incident"},
+    {id: 3, title: "Security Audit Findings", date: "2023-10-12", status: "completed", content: "", type: "compliance"}
   ]);
+  const [currentDraftId, setCurrentDraftId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const savedDrafts = localStorage.getItem('securityReportDrafts');
+    if (savedDrafts) {
+      try {
+        setDraftReports(JSON.parse(savedDrafts));
+      } catch (e) {
+        console.error("Error parsing saved drafts:", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('securityReportDrafts', JSON.stringify(draftReports));
+  }, [draftReports]);
 
   const reportTemplates = [
     {
@@ -66,7 +81,8 @@ const Reports = () => {
 [Key takeaways from the incident]
 
 ## Recommendations
-[Suggestions for improving security posture]`
+[Suggestions for improving security posture]`,
+      type: "incident"
     },
     {
       id: 2,
@@ -99,7 +115,8 @@ const Reports = () => {
 [Planned security projects]
 
 ## Recommendations
-[Security recommendations for the organization]`
+[Security recommendations for the organization]`,
+      type: "monthly"
     },
     {
       id: 3,
@@ -143,7 +160,8 @@ const Reports = () => {
 - **Low Vulnerabilities**: [Deadline]
 
 ## Conclusion
-[Summary and next steps]`
+[Summary and next steps]`,
+      type: "vulnerability"
     },
     {
       id: 4,
@@ -181,7 +199,8 @@ const Reports = () => {
 [Action plan to address non-compliant items]
 
 ## Conclusion
-[Overall assessment and next steps]`
+[Overall assessment and next steps]`,
+      type: "compliance"
     }
   ];
 
@@ -191,6 +210,8 @@ const Reports = () => {
       setSelectedTemplate(template.title);
       setReportTitle(template.title);
       setReportContent(template.content);
+      setReportType(template.type);
+      setCurrentDraftId(null);
       setActiveTab("editor");
     }
   };
@@ -199,7 +220,20 @@ const Reports = () => {
     setSelectedTemplate(null);
     setReportTitle("");
     setReportContent("");
+    setReportType("");
+    setCurrentDraftId(null);
     setActiveTab("editor");
+  };
+
+  const handleEditDraft = (reportId: number) => {
+    const draft = draftReports.find(r => r.id === reportId);
+    if (draft) {
+      setReportTitle(draft.title);
+      setReportContent(draft.content || "");
+      setReportType(draft.type || "");
+      setCurrentDraftId(draft.id);
+      setActiveTab("editor");
+    }
   };
 
   const handleSaveDraft = () => {
@@ -212,14 +246,27 @@ const Reports = () => {
       return;
     }
 
-    const newDraft = {
-      id: draftReports.length + 1,
-      title: reportTitle,
-      date: new Date().toISOString().split('T')[0],
-      status: "draft"
-    };
-
-    setDraftReports([...draftReports, newDraft]);
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    if (currentDraftId) {
+      const updatedDrafts = draftReports.map(draft => 
+        draft.id === currentDraftId 
+          ? { ...draft, title: reportTitle, content: reportContent, type: reportType, date: currentDate }
+          : draft
+      );
+      setDraftReports(updatedDrafts);
+    } else {
+      const newDraft = {
+        id: Date.now(),
+        title: reportTitle,
+        content: reportContent,
+        type: reportType,
+        date: currentDate,
+        status: "draft"
+      };
+      setDraftReports([...draftReports, newDraft]);
+      setCurrentDraftId(newDraft.id);
+    }
     
     toast({
       title: "Report Saved",
@@ -238,53 +285,61 @@ const Reports = () => {
     }
 
     const reportDiv = document.createElement('div');
-    reportDiv.style.padding = '20px';
+    reportDiv.className = 'report-content';
+    reportDiv.style.padding = '40px';
     reportDiv.style.fontFamily = 'Arial, sans-serif';
-    reportDiv.style.width = '700px';
+    reportDiv.style.width = '800px';
     reportDiv.style.position = 'absolute';
     reportDiv.style.left = '-9999px';
     
     const formattedContent = reportContent
-      .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-      .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-      .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+      .replace(/^# (.*$)/gm, '<h1 style="font-size: 24px; font-weight: bold; margin-top: 24px; margin-bottom: 16px; color: #000;">$1</h1>')
+      .replace(/^## (.*$)/gm, '<h2 style="font-size: 20px; font-weight: bold; margin-top: 20px; margin-bottom: 14px; color: #222;">$1</h2>')
+      .replace(/^### (.*$)/gm, '<h3 style="font-size: 18px; font-weight: bold; margin-top: 18px; margin-bottom: 12px; color: #333;">$1</h3>')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/\n- /g, '<br/>• ')
+      .replace(/\n- (.*)/g, '<br/>• $1')
       .replace(/\n/g, '<br/>');
     
-    reportDiv.innerHTML = `<h1>${reportTitle}</h1>${formattedContent}`;
+    reportDiv.innerHTML = `
+      <h1 style="font-size: 28px; font-weight: bold; margin-bottom: 20px; text-align: center; color: #000;">${reportTitle}</h1>
+      <div style="margin-top: 30px;">
+        ${formattedContent}
+      </div>
+    `;
+    
     document.body.appendChild(reportDiv);
     
     try {
       const pdf = new jsPDF('p', 'pt', 'a4');
-      const canvas = await html2canvas(reportDiv);
+      const contentWidth = reportDiv.offsetWidth;
+      const contentHeight = reportDiv.offsetHeight;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      
+      const canvas = await html2canvas(reportDiv, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        allowTaint: true
+      });
+      
       const imgData = canvas.toDataURL('image/png');
+      const imgWidth = pageWidth - 40;
+      const imgHeight = (imgWidth / contentWidth) * contentHeight;
       
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      let position = 20;
+      pdf.addImage(imgData, 'PNG', 20, position, imgWidth, imgHeight);
       
-      let y = 0;
-      const imgPages = Math.ceil(imgHeight * ratio / pdfHeight);
+      let remainingHeight = imgHeight - pdfHeight;
+      let currentPosition = pdfHeight;
       
-      for (let i = 0; i < imgPages; i++) {
-        if (i > 0) {
-          pdf.addPage();
-        }
-        
-        pdf.addImage(
-          imgData,
-          'PNG',
-          0,
-          y * ratio * -1,
-          imgWidth * ratio,
-          imgHeight * ratio
-        );
-        
-        y += pdfHeight;
+      while (remainingHeight > 0) {
+        position = position - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 20, position, imgWidth, imgHeight);
+        remainingHeight -= pdfHeight;
+        currentPosition += pdfHeight;
       }
       
       const filename = `${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
@@ -304,85 +359,6 @@ const Reports = () => {
     } finally {
       document.body.removeChild(reportDiv);
     }
-  };
-
-  const handleShareReport = () => {
-    if (!reportTitle || !reportContent) {
-      toast({
-        title: "Error",
-        description: "Please ensure your report has both a title and content",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setShowShareDialog(true);
-  };
-
-  const handleShareViaWhatsApp = () => {
-    if (!reportTitle || !reportContent) {
-      toast({
-        title: "Error",
-        description: "Please ensure your report has both a title and content",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const text = encodeURIComponent(`*${reportTitle}*\n\n${reportContent.substring(0, 100)}...`);
-    const whatsappUrl = `https://web.whatsapp.com/send?text=${text}`;
-    
-    window.open(whatsappUrl, '_blank');
-    
-    setShowShareDialog(false);
-    
-    toast({
-      title: "Opening WhatsApp",
-      description: "WhatsApp web is opening in a new tab for sharing",
-    });
-  };
-
-  const shareVia = (method: string) => {
-    if (navigator.share && method === 'native') {
-      navigator.share({
-        title: reportTitle,
-        text: `Security Report: ${reportTitle}`,
-      })
-      .then(() => {
-        toast({
-          title: "Report Shared",
-          description: "Your report was shared successfully",
-        });
-      })
-      .catch(error => {
-        console.error('Error sharing:', error);
-        toast({
-          title: "Sharing Failed",
-          description: "There was an error sharing your report",
-          variant: "destructive",
-        });
-      });
-      return;
-    }
-    
-    toast({
-      title: "Report Shared",
-      description: `Your report has been shared via ${method}`,
-    });
-  };
-
-  const requestPermission = () => {
-    toast({
-      title: "Permission Request",
-      description: "Permission requested to access contacts and sharing capabilities.",
-    });
-    
-    setTimeout(() => {
-      toast({
-        title: "Permission Granted",
-        description: "Access to contacts and sharing capabilities has been granted.",
-      });
-    }, 1500);
   };
 
   return (
@@ -458,7 +434,7 @@ const Reports = () => {
                     </CardHeader>
                     <CardFooter className="pt-2">
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setActiveTab("editor")}>
+                        <Button size="sm" variant="outline" onClick={() => handleEditDraft(report.id)}>
                           <Pencil className="h-3 w-3 mr-1" /> Edit
                         </Button>
                         <Button size="sm" variant="outline">
@@ -466,9 +442,6 @@ const Reports = () => {
                         </Button>
                         <Button size="sm" variant="outline" onClick={handleExport}>
                           <Download className="h-3 w-3 mr-1" /> Export
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={handleShareReport}>
-                          <Share2 className="h-3 w-3 mr-1" /> Share
                         </Button>
                       </div>
                     </CardFooter>
@@ -483,7 +456,7 @@ const Reports = () => {
           <Card>
             <CardHeader>
               <CardTitle>
-                {selectedTemplate ? `Edit: ${selectedTemplate}` : "New Report"}
+                {currentDraftId ? `Edit: ${reportTitle}` : (selectedTemplate ? `Edit: ${selectedTemplate}` : "New Report")}
               </CardTitle>
               <CardDescription>
                 Complete the report details below. Use markdown formatting for rich text.
@@ -501,7 +474,7 @@ const Reports = () => {
               
               <div>
                 <label className="text-sm font-medium mb-1 block">Report Type</label>
-                <Select>
+                <Select value={reportType} onValueChange={setReportType}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select report type" />
                   </SelectTrigger>
@@ -532,67 +505,14 @@ const Reports = () => {
                 </Button>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={handleExport}>
-                  <Download className="mr-2 h-4 w-4" /> Export
-                </Button>
-                <Button onClick={handleShareReport}>
-                  <Share2 className="mr-2 h-4 w-4" /> Share Report
+                <Button onClick={handleExport}>
+                  <Download className="mr-2 h-4 w-4" /> Export Report
                 </Button>
               </div>
             </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
-      
-      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Share Report</DialogTitle>
-            <DialogDescription>
-              Choose how you want to share your report
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid grid-cols-2 gap-4 py-4">
-            <Button variant="outline" className="flex flex-col items-center justify-center h-24" onClick={handleShareViaWhatsApp}>
-              <div className="rounded-full bg-green-100 p-2 mb-2">
-                <MessageSquare className="h-6 w-6 text-green-600" />
-              </div>
-              <span>WhatsApp</span>
-            </Button>
-            
-            <Button variant="outline" className="flex flex-col items-center justify-center h-24" onClick={() => shareVia('Bluetooth')}>
-              <div className="rounded-full bg-blue-100 p-2 mb-2">
-                <Bluetooth className="h-6 w-6 text-blue-600" />
-              </div>
-              <span>Bluetooth</span>
-            </Button>
-            
-            <Button variant="outline" className="flex flex-col items-center justify-center h-24" onClick={() => shareVia('Nearby Share')}>
-              <div className="rounded-full bg-purple-100 p-2 mb-2">
-                <Smartphone className="h-6 w-6 text-purple-600" />
-              </div>
-              <span>Nearby Share</span>
-            </Button>
-            
-            <Button variant="outline" className="flex flex-col items-center justify-center h-24" onClick={() => shareVia('Email')}>
-              <div className="rounded-full bg-amber-100 p-2 mb-2">
-                <Mail className="h-6 w-6 text-amber-600" />
-              </div>
-              <span>Email</span>
-            </Button>
-          </div>
-
-          <DialogFooter>
-            <Button variant="secondary" onClick={requestPermission}>
-              Request Permissions
-            </Button>
-            <Button variant="outline" onClick={() => setShowShareDialog(false)}>
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
