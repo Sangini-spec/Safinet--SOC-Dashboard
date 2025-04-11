@@ -5,8 +5,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Check, Shield, MessageSquareText, Virus, Cloud } from "lucide-react";
+import { AlertCircle, Check, Shield, MessageSquareText, Bug, Cloud } from "lucide-react";
 import { useToast } from '@/components/ui/use-toast';
+
+// Define proper types for our integrations
+interface IntegrationBase {
+  enabled: boolean;
+}
+
+interface ApiKeyIntegration extends IntegrationBase {
+  apiKey: string;
+}
+
+interface WebhookIntegration extends IntegrationBase {
+  webhookUrl: string;
+}
+
+interface FullIntegration extends ApiKeyIntegration, WebhookIntegration {}
+
+interface IntegrationsState {
+  siem: FullIntegration;
+  slack: WebhookIntegration;
+  virusTotal: ApiKeyIntegration;
+  cloudWatch: ApiKeyIntegration;
+}
 
 interface IntegrationCardProps {
   title: string;
@@ -20,14 +42,14 @@ interface IntegrationCardProps {
 
 const Integrations = () => {
   const { toast } = useToast();
-  const [integrations, setIntegrations] = useState({
+  const [integrations, setIntegrations] = useState<IntegrationsState>({
     siem: { enabled: false, apiKey: '', webhookUrl: '' },
     slack: { enabled: false, webhookUrl: '' },
     virusTotal: { enabled: false, apiKey: '' },
     cloudWatch: { enabled: false, apiKey: '' }
   });
 
-  const handleToggleChange = (integrationKey: keyof typeof integrations) => {
+  const handleToggleChange = (integrationKey: keyof IntegrationsState) => {
     setIntegrations(prev => ({
       ...prev,
       [integrationKey]: {
@@ -51,7 +73,7 @@ const Integrations = () => {
   };
 
   const handleInputChange = (
-    integrationKey: keyof typeof integrations,
+    integrationKey: keyof IntegrationsState,
     field: 'apiKey' | 'webhookUrl',
     value: string
   ) => {
@@ -64,7 +86,7 @@ const Integrations = () => {
     }));
   };
 
-  const handleSaveClick = (integrationKey: keyof typeof integrations) => {
+  const handleSaveClick = (integrationKey: keyof IntegrationsState) => {
     const integration = integrations[integrationKey];
     
     // Validate required fields
@@ -89,7 +111,7 @@ const Integrations = () => {
     });
   };
 
-  const integrationCards: Array<IntegrationCardProps & { key: keyof typeof integrations }> = [
+  const integrationCards: Array<IntegrationCardProps & { key: keyof IntegrationsState }> = [
     {
       key: 'siem',
       title: 'SIEM Tools',
@@ -112,7 +134,7 @@ const Integrations = () => {
       key: 'virusTotal',
       title: 'VirusTotal',
       description: 'Analyze suspicious files and URLs',
-      icon: <Virus className="h-6 w-6" />,
+      icon: <Bug className="h-6 w-6" />,
       apiKeyLabel: 'VirusTotal API Key',
       requiresApiKey: true
     },
@@ -158,7 +180,7 @@ const Integrations = () => {
                       id={`${key}-api-key`}
                       type="password"
                       placeholder={`Enter ${apiKeyLabel}`}
-                      value={integrations[key].apiKey}
+                      value={'apiKey' in integrations[key] ? integrations[key].apiKey : ''}
                       onChange={(e) => handleInputChange(key, 'apiKey', e.target.value)}
                       disabled={!integrations[key].enabled}
                     />
@@ -171,7 +193,7 @@ const Integrations = () => {
                       id={`${key}-webhook`}
                       type="text"
                       placeholder={`Enter ${webhookLabel}`}
-                      value={integrations[key].webhookUrl}
+                      value={'webhookUrl' in integrations[key] ? integrations[key].webhookUrl : ''}
                       onChange={(e) => handleInputChange(key, 'webhookUrl', e.target.value)}
                       disabled={!integrations[key].enabled}
                     />
