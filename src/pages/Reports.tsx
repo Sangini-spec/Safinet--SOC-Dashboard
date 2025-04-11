@@ -293,21 +293,41 @@ const Reports = () => {
     reportDiv.style.position = 'absolute';
     reportDiv.style.left = '-9999px';
     reportDiv.style.backgroundColor = '#ffffff';
+    reportDiv.style.color = '#000000';
     
-    // Improved markdown to HTML conversion
-    const formattedContent = reportContent
+    // Completely revamped markdown to HTML conversion for better content rendering
+    let formattedContent = reportContent;
+    
+    // Process headers first
+    formattedContent = formattedContent
       .replace(/^# (.*$)/gm, '<h1 style="font-size: 24px; font-weight: bold; margin-top: 24px; margin-bottom: 16px; color: #000;">$1</h1>')
       .replace(/^## (.*$)/gm, '<h2 style="font-size: 20px; font-weight: bold; margin-top: 20px; margin-bottom: 14px; color: #222;">$1</h2>')
-      .replace(/^### (.*$)/gm, '<h3 style="font-size: 18px; font-weight: bold; margin-top: 18px; margin-bottom: 12px; color: #333;">$1</h3>')
+      .replace(/^### (.*$)/gm, '<h3 style="font-size: 18px; font-weight: bold; margin-top: 18px; margin-bottom: 12px; color: #333;">$1</h3>');
+    
+    // Process lists with proper spacing
+    formattedContent = formattedContent.replace(/^- (.*)$/gm, '<div style="margin-left: 20px; margin-bottom: 8px;">• $1</div>');
+    
+    // Process inline formatting
+    formattedContent = formattedContent
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/^- (.*$)/gm, '• $1<br/>')  // Better list item handling
-      .split('\n\n').join('<p style="margin-bottom: 16px;">') // Handle paragraphs
-      .split('\n').join('<br/>');  // Handle line breaks
+      .replace(/\*(.*?)\*/g, '<em>$1</em>');
+    
+    // Handle paragraphs and line breaks carefully
+    const paragraphs = formattedContent.split(/\n\n+/);
+    formattedContent = paragraphs.map(para => {
+      // Skip already wrapped HTML content
+      if (para.trim().startsWith('<h') || para.trim().startsWith('<div')) {
+        return para;
+      }
+      
+      // Handle line breaks within paragraphs
+      const formattedPara = para.replace(/\n/g, '<br/>');
+      return `<p style="margin-bottom: 16px; line-height: 1.6;">${formattedPara}</p>`;
+    }).join('\n');
     
     reportDiv.innerHTML = `
       <h1 style="font-size: 28px; font-weight: bold; margin-bottom: 20px; text-align: center; color: #000;">${reportTitle}</h1>
-      <div style="margin-top: 30px; line-height: 1.6; font-size: 14px;">
+      <div style="margin-top: 30px; line-height: 1.6; font-size: 14px; color: #000;">
         ${formattedContent}
       </div>
     `;
