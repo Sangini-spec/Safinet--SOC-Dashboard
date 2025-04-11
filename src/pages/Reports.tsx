@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -291,19 +292,22 @@ const Reports = () => {
     reportDiv.style.width = '800px';
     reportDiv.style.position = 'absolute';
     reportDiv.style.left = '-9999px';
+    reportDiv.style.backgroundColor = '#ffffff';
     
+    // Improved markdown to HTML conversion
     const formattedContent = reportContent
       .replace(/^# (.*$)/gm, '<h1 style="font-size: 24px; font-weight: bold; margin-top: 24px; margin-bottom: 16px; color: #000;">$1</h1>')
       .replace(/^## (.*$)/gm, '<h2 style="font-size: 20px; font-weight: bold; margin-top: 20px; margin-bottom: 14px; color: #222;">$1</h2>')
       .replace(/^### (.*$)/gm, '<h3 style="font-size: 18px; font-weight: bold; margin-top: 18px; margin-bottom: 12px; color: #333;">$1</h3>')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/\n- (.*)/g, '<br/>• $1')
-      .replace(/\n/g, '<br/>');
+      .replace(/^- (.*$)/gm, '• $1<br/>')  // Better list item handling
+      .split('\n\n').join('<p style="margin-bottom: 16px;">') // Handle paragraphs
+      .split('\n').join('<br/>');  // Handle line breaks
     
     reportDiv.innerHTML = `
       <h1 style="font-size: 28px; font-weight: bold; margin-bottom: 20px; text-align: center; color: #000;">${reportTitle}</h1>
-      <div style="margin-top: 30px;">
+      <div style="margin-top: 30px; line-height: 1.6; font-size: 14px;">
         ${formattedContent}
       </div>
     `;
@@ -323,7 +327,8 @@ const Reports = () => {
         scale: 2,
         useCORS: true,
         logging: false,
-        allowTaint: true
+        allowTaint: true,
+        backgroundColor: '#ffffff'
       });
       
       const imgData = canvas.toDataURL('image/png');
@@ -333,6 +338,7 @@ const Reports = () => {
       let position = 20;
       pdf.addImage(imgData, 'PNG', 20, position, imgWidth, imgHeight);
       
+      // Add additional pages if content exceeds page height
       let remainingHeight = imgHeight - pdfHeight;
       let currentPosition = pdfHeight;
       
