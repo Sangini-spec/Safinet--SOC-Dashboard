@@ -194,9 +194,11 @@ const Integrations = () => {
                       id={`${key}-api-key`}
                       type="password"
                       placeholder={`Enter ${apiKeyLabel}`}
-                      value={key === 'siem' || key === 'virusTotal' || key === 'cloudWatch' 
-                        ? (integrations[key] as ApiKeyIntegration | FullIntegration).apiKey 
-                        : ''}
+                      value={
+                        key === 'siem' ? integrations[key].apiKey :
+                        key === 'virusTotal' ? integrations[key].apiKey :
+                        key === 'cloudWatch' ? integrations[key].apiKey : ''
+                      }
                       onChange={(e) => handleInputChange(key, 'apiKey', e.target.value)}
                       disabled={!integrations[key].enabled}
                     />
@@ -209,9 +211,10 @@ const Integrations = () => {
                       id={`${key}-webhook`}
                       type="text"
                       placeholder={`Enter ${webhookLabel}`}
-                      value={key === 'siem' || key === 'slack'
-                        ? (integrations[key] as WebhookIntegration | FullIntegration).webhookUrl
-                        : ''}
+                      value={
+                        key === 'siem' ? integrations[key].webhookUrl :
+                        key === 'slack' ? integrations[key].webhookUrl : ''
+                      }
                       onChange={(e) => handleInputChange(key, 'webhookUrl', e.target.value)}
                       disabled={!integrations[key].enabled}
                     />

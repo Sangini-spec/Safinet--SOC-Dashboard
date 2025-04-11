@@ -16,6 +16,8 @@ import Help from "./pages/Help";
 import AnomalyDetection from "./pages/AnomalyDetection";
 import Analytics from "./pages/Analytics";
 import Reports from "./pages/Reports";
+import Integrations from "./pages/Integrations";
+import Incidents from "./pages/Incidents";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -103,6 +105,22 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <AppLayout><Reports /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/integrations"
+        element={
+          <ProtectedRoute>
+            <AppLayout><Integrations /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/incidents"
+        element={
+          <ProtectedRoute>
+            <AppLayout><Incidents /></AppLayout>
           </ProtectedRoute>
         }
       />
