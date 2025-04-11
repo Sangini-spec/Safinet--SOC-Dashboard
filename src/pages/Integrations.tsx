@@ -89,13 +89,27 @@ const Integrations = () => {
   const handleSaveClick = (integrationKey: keyof IntegrationsState) => {
     const integration = integrations[integrationKey];
     
-    // Validate required fields
-    if (
-      (integrationKey === 'siem' && (!integration.apiKey || !integration.webhookUrl)) ||
-      (integrationKey === 'slack' && !integration.webhookUrl) ||
-      (integrationKey === 'virusTotal' && !integration.apiKey) ||
-      (integrationKey === 'cloudWatch' && !integration.apiKey)
-    ) {
+    // Type-safe validation based on the integration type
+    let hasValidationError = false;
+    
+    if (integrationKey === 'siem') {
+      const siemIntegration = integration as FullIntegration;
+      if (!siemIntegration.apiKey || !siemIntegration.webhookUrl) {
+        hasValidationError = true;
+      }
+    } else if (integrationKey === 'slack') {
+      const slackIntegration = integration as WebhookIntegration;
+      if (!slackIntegration.webhookUrl) {
+        hasValidationError = true;
+      }
+    } else if (integrationKey === 'virusTotal' || integrationKey === 'cloudWatch') {
+      const apiKeyIntegration = integration as ApiKeyIntegration;
+      if (!apiKeyIntegration.apiKey) {
+        hasValidationError = true;
+      }
+    }
+    
+    if (hasValidationError) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields.",
@@ -180,7 +194,9 @@ const Integrations = () => {
                       id={`${key}-api-key`}
                       type="password"
                       placeholder={`Enter ${apiKeyLabel}`}
-                      value={'apiKey' in integrations[key] ? integrations[key].apiKey : ''}
+                      value={key === 'siem' || key === 'virusTotal' || key === 'cloudWatch' 
+                        ? (integrations[key] as ApiKeyIntegration | FullIntegration).apiKey 
+                        : ''}
                       onChange={(e) => handleInputChange(key, 'apiKey', e.target.value)}
                       disabled={!integrations[key].enabled}
                     />
@@ -193,7 +209,9 @@ const Integrations = () => {
                       id={`${key}-webhook`}
                       type="text"
                       placeholder={`Enter ${webhookLabel}`}
-                      value={'webhookUrl' in integrations[key] ? integrations[key].webhookUrl : ''}
+                      value={key === 'siem' || key === 'slack'
+                        ? (integrations[key] as WebhookIntegration | FullIntegration).webhookUrl
+                        : ''}
                       onChange={(e) => handleInputChange(key, 'webhookUrl', e.target.value)}
                       disabled={!integrations[key].enabled}
                     />
