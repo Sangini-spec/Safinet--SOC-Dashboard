@@ -1,54 +1,95 @@
-# Welcome to your Lovable project
 
-## Project info
 
-**URL**: https://lovable.dev/projects/d540acc1-b8d6-4bf9-b37f-0b6268842a62
 
-## How can I edit this code?
+# 🇮🇳 SafiNet – Cyber Sentinel Hub
 
-There are several ways of editing your application.
+**SafiNet** is a production-grade cybersecurity web app built for Indian cyber intelligence teams and private organizations. It enables real-time threat tracking, analyst workflow automation, and structured incident response — all from a unified, secure interface.
 
-**Use Lovable**
+---
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/d540acc1-b8d6-4bf9-b37f-0b6268842a62) and start prompting.
+## 🔐 Core Features
 
-Changes made via Lovable will be committed automatically to this repo.
+### 📊 Dashboard
+A centralized hub showing:
+- Active incidents summary
+- Threat level visualization
+- Performance snapshot  
+*(Planned module for situational awareness)*
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 🚨 Incidents
+Track and manage reported or detected cyber incidents:
+- View by severity, source, or detection method
+- Deep dive into full incident context
+- Linked directly to relevant playbooks
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+### 📘 Playbooks
+Standard Operating Procedures (SOPs) for different attack types:
+- Step-by-step response strategy
+- Auto-linked from incidents
+- Editable by admins/analysts
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+---
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### 📂 Log Viewer
+Explore:
+- System logs  
+- Auth attempts  
+- AI-flagged behaviors  
+Includes search, filters, and timestamps for quick forensic analysis.
 
-# Step 3: Install the necessary dependencies.
-npm i
+---
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+### 🧠 Anomaly Detection
+ML-powered engine to:
+- Spot abnormal patterns in real time
+- Flag possible intrusions or policy violations
+- Allow analysts to verify or dismiss events
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### 📈 Analytics
+Graphical insights into:
+- Incident trends
+- Most targeted systems
+- Playbook effectiveness  
+*(Planned extension)*
 
-**Use GitHub Codespaces**
+---
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### 📝 Create Reports
+Generate and export formal incident reports:
+- Markdown support
+- Structured fields (cause, impact, resolution)
+- Analyst attribution
+
+---
+
+### 🔌 Integrations
+> *(Future-ready section)*  
+Will enable secure connections with:
+- SIEMs
+- Threat intel APIs
+- Notification tools (FCM/Email/SMS)
+
+---
+
+## 🔐 Access Control
+- Role-based access (Analyst, Admin)
+- Analyst IDs for incident attribution
+- Designed for use in secure internal SOC/Gov environments
+
+---
+
+## 🎯 Target Users
+- Indian Government Cybersecurity Cells (CERT-In, NCIIPC, etc.)
+- State/Defense Security Units
+- Private SOC teams in critical infrastructure orgs
+
+---
 
 ## What technologies are used for this project?
 
@@ -60,14 +101,8 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
-## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/d540acc1-b8d6-4bf9-b37f-0b6268842a62) and click on Share -> Publish.
 
-## Can I connect a custom domain to my Lovable project?
 
-Yes it is!
+> 🛡️ This app is in active development and built for private, secured deployment. Not intended for public distribution or unauthorized use.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
