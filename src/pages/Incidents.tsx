@@ -7,6 +7,7 @@ import IncidentFilters, { SeverityType, StatusType } from '@/components/incident
 import EmptyState from '@/components/incidents/EmptyState';
 import { mockIncidents, filterIncidents, updatePlaybookStep } from '@/services/incidentService';
 import { IncidentDetail } from '@/components/incidents/IncidentDetails';
+import { generateIncidentPDF } from '@/utils/reportUtils';
 
 const Incidents = () => {
   const { toast } = useToast();
@@ -18,19 +19,40 @@ const Incidents = () => {
   // Filter incidents based on current filters
   const filteredIncidents = filterIncidents(mockIncidents, severityFilter, statusFilter);
   
-  const handleExportReport = (incidentId: string) => {
+  const handleExportReport = async (incidentId: string) => {
     toast({
       title: "Report Export Initiated",
       description: `Generating report for incident ${incidentId}...`,
     });
     
-    // In a real application, this would trigger the report generation
-    setTimeout(() => {
+    // Find the incident by ID
+    const incident = mockIncidents.find(inc => inc.id === incidentId);
+    
+    if (!incident) {
+      toast({
+        title: "Error",
+        description: "Incident not found",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      // Generate and download the PDF report
+      await generateIncidentPDF(incident);
+      
       toast({
         title: "Report Generated",
         description: `Report for incident ${incidentId} has been exported.`,
       });
-    }, 2000);
+    } catch (error) {
+      console.error("Error exporting report:", error);
+      toast({
+        title: "Export Failed",
+        description: "There was an error generating the PDF report.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleViewDetails = (incident: IncidentDetail) => {
