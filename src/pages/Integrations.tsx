@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Check, Shield, MessageSquareText, Bug, Cloud } from "lucide-react";
+import { AlertCircle, Check, Shield, MessageSquareText, Bug, Cloud, Database } from "lucide-react";
 import { useToast } from '@/components/ui/use-toast';
 
 // Define proper types for our integrations
@@ -24,7 +24,7 @@ interface WebhookIntegration extends IntegrationBase {
 interface FullIntegration extends ApiKeyIntegration, WebhookIntegration {}
 
 interface IntegrationsState {
-  siem: FullIntegration;
+  splunk: FullIntegration;
   slack: WebhookIntegration;
   virusTotal: ApiKeyIntegration;
   cloudWatch: ApiKeyIntegration;
@@ -43,7 +43,7 @@ interface IntegrationCardProps {
 const Integrations = () => {
   const { toast } = useToast();
   const [integrations, setIntegrations] = useState<IntegrationsState>({
-    siem: { enabled: false, apiKey: '', webhookUrl: '' },
+    splunk: { enabled: false, apiKey: '', webhookUrl: '' },
     slack: { enabled: false, webhookUrl: '' },
     virusTotal: { enabled: false, apiKey: '' },
     cloudWatch: { enabled: false, apiKey: '' }
@@ -59,7 +59,7 @@ const Integrations = () => {
     }));
     
     const integrationName = {
-      siem: 'SIEM Tools',
+      splunk: 'Splunk',
       slack: 'Slack',
       virusTotal: 'VirusTotal',
       cloudWatch: 'AWS CloudWatch'
@@ -92,9 +92,9 @@ const Integrations = () => {
     // Type-safe validation based on the integration type
     let hasValidationError = false;
     
-    if (integrationKey === 'siem') {
-      const siemIntegration = integration as FullIntegration;
-      if (!siemIntegration.apiKey || !siemIntegration.webhookUrl) {
+    if (integrationKey === 'splunk') {
+      const splunkIntegration = integration as FullIntegration;
+      if (!splunkIntegration.apiKey || !splunkIntegration.webhookUrl) {
         hasValidationError = true;
       }
     } else if (integrationKey === 'slack') {
@@ -127,11 +127,11 @@ const Integrations = () => {
 
   const integrationCards: Array<IntegrationCardProps & { key: keyof IntegrationsState }> = [
     {
-      key: 'siem',
-      title: 'SIEM Tools',
-      description: 'Connect to your Security Information and Event Management tools',
-      icon: <Shield className="h-6 w-6" />,
-      apiKeyLabel: 'SIEM API Key',
+      key: 'splunk',
+      title: 'Splunk',
+      description: 'Connect to your Splunk instance for advanced security analytics',
+      icon: <Database className="h-6 w-6" />,
+      apiKeyLabel: 'Splunk API Key',
       webhookLabel: 'Webhook URL',
       requiresApiKey: true,
       requiresWebhook: true
