@@ -195,7 +195,7 @@ const Integrations = () => {
                       type="password"
                       placeholder={`Enter ${apiKeyLabel}`}
                       value={
-                        key === 'siem' ? integrations[key].apiKey :
+                        key === 'splunk' ? integrations[key].apiKey :
                         key === 'virusTotal' ? integrations[key].apiKey :
                         key === 'cloudWatch' ? integrations[key].apiKey : ''
                       }
@@ -212,7 +212,7 @@ const Integrations = () => {
                       type="text"
                       placeholder={`Enter ${webhookLabel}`}
                       value={
-                        key === 'siem' ? integrations[key].webhookUrl :
+                        key === 'splunk' ? integrations[key].webhookUrl :
                         key === 'slack' ? integrations[key].webhookUrl : ''
                       }
                       onChange={(e) => handleInputChange(key, 'webhookUrl', e.target.value)}
