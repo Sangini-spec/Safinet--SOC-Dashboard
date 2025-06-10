@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
-import Login from "./pages/Login";
+import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import LogViewer from "./pages/LogViewer";
 import Playbooks from "./pages/Playbooks";
@@ -18,6 +18,7 @@ import Analytics from "./pages/Analytics";
 import Reports from "./pages/Reports";
 import Integrations from "./pages/Integrations";
 import Incidents from "./pages/Incidents";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -31,17 +32,25 @@ const queryClient = new QueryClient({
 
 // Auth check wrapper component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const isAuthenticated = !!localStorage.getItem('safinetUser');
   
   React.useEffect(() => {
-    if (!isAuthenticated && location.pathname !== '/login') {
-      navigate('/login');
+    if (!loading && !user && location.pathname !== '/auth') {
+      navigate('/auth');
     }
-  }, [isAuthenticated, navigate, location]);
+  }, [user, loading, navigate, location]);
   
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  return user ? <>{children}</> : <Navigate to="/auth" />;
 };
 
 const AppRoutes = () => {
@@ -49,7 +58,7 @@ const AppRoutes = () => {
     <Routes>
       {/* Root path redirects to Index component which handles auth-based routing */}
       <Route path="/" element={<Index />} />
-      <Route path="/login" element={<Login />} />
+      <Route path="/auth" element={<Auth />} />
       
       {/* Protected routes */}
       <Route
@@ -137,9 +146,11 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <AppRoutes />
+            <AuthProvider>
+              <Toaster />
+              <Sonner />
+              <AppRoutes />
+            </AuthProvider>
           </TooltipProvider>
         </BrowserRouter>
       </QueryClientProvider>
