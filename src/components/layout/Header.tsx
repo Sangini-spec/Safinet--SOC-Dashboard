@@ -4,8 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Search, Bell, Menu, X, Shield } from 'lucide-react';
+import { Bell, Menu, X, Shield } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
+import SearchDropdown from '@/components/search/SearchDropdown';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -57,9 +58,7 @@ const Header = () => {
           </ToggleGroup>
           
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon">
-              <Search className="h-5 w-5" />
-            </Button>
+            <SearchDropdown />
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
               <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-xs bg-safinet-red text-white">
