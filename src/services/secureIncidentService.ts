@@ -1,21 +1,27 @@
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 
-// Validation schemas
+// Enhanced validation schemas with better security
 const IncidentCreateSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
-  description: z.string().max(2000, 'Description too long').optional(),
+  title: z.string()
+    .min(1, 'Title is required')
+    .max(200, 'Title too long')
+    .regex(/^[a-zA-Z0-9\s\-_.,!?]+$/, 'Title contains invalid characters'),
+  description: z.string()
+    .max(2000, 'Description too long')
+    .regex(/^[a-zA-Z0-9\s\-_.,!?\n\r]+$/, 'Description contains invalid characters')
+    .optional(),
   severity: z.enum(['low', 'medium', 'high', 'critical']),
   status: z.enum(['active', 'under-investigation', 'resolved', 'closed']).default('active'),
   assigned_analyst_id: z.string().uuid().optional(),
   location_data: z.object({
-    name: z.string(),
-    latitude: z.number(),
-    longitude: z.number()
+    name: z.string().max(100),
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180)
   }).optional(),
   playbook_data: z.array(z.object({
-    id: z.string(),
-    title: z.string(),
+    id: z.string().uuid(),
+    title: z.string().max(200),
     completed: z.boolean()
   })).optional()
 });
@@ -46,6 +52,27 @@ class SecureIncidentService {
     }
   }
 
+  private sanitizeIncidentData(data: any): any {
+    return {
+      ...data,
+      title: this.sanitizeText(data.title),
+      description: data.description ? this.sanitizeText(data.description) : undefined,
+      location_data: data.location_data ? {
+        name: this.sanitizeText(data.location_data.name),
+        latitude: Number(data.location_data.latitude),
+        longitude: Number(data.location_data.longitude)
+      } : undefined
+    };
+  }
+
+  private sanitizeText(text: string): string {
+    return text
+      .replace(/[<>]/g, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+=/gi, '')
+      .trim();
+  }
+
   async createIncident(incidentData: IncidentCreate) {
     try {
       // Validate input
@@ -56,15 +83,18 @@ class SecureIncidentService {
         throw new Error('User not authenticated');
       }
 
+      // Sanitize the data
+      const sanitized = this.sanitizeIncidentData(validated);
+
       // Prepare the data for database insertion
       const insertData = {
-        title: validated.title,
-        description: validated.description,
-        severity: validated.severity,
-        status: validated.status || 'active',
-        assigned_analyst_id: validated.assigned_analyst_id,
-        location_data: validated.location_data,
-        playbook_data: validated.playbook_data,
+        title: sanitized.title,
+        description: sanitized.description,
+        severity: sanitized.severity,
+        status: sanitized.status || 'active',
+        assigned_analyst_id: sanitized.assigned_analyst_id,
+        location_data: sanitized.location_data,
+        playbook_data: sanitized.playbook_data,
         created_by: user.id
       };
 
@@ -97,16 +127,19 @@ class SecureIncidentService {
       const validated = IncidentUpdateSchema.parse(incidentData);
       const { id, ...updateData } = validated;
 
+      // Sanitize the data
+      const sanitized = this.sanitizeIncidentData(updateData);
+
       const { data, error } = await supabase
         .from('incidents')
-        .update(updateData)
+        .update(sanitized)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
 
-      await this.logAuditEvent('incident_updated', id, updateData);
+      await this.logAuditEvent('incident_updated', id, sanitized);
 
       return { data, error: null };
     } catch (error) {
@@ -114,6 +147,52 @@ class SecureIncidentService {
       return { 
         data: null, 
         error: error instanceof Error ? error.message : 'Failed to update incident' 
+      };
+    }
+  }
+
+  async sendNotification(incidentId: string, notificationType: 'email' | 'sms' | 'slack', recipients: string[], message: string) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
+      // Use the secure proxy for sending notifications
+      const response = await fetch('/functions/v1/secure-integration-proxy', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          integrationType: notificationType,
+          action: 'send',
+          data: {
+            recipients,
+            message: this.sanitizeText(message),
+            incidentId
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send notification');
+      }
+
+      const result = await response.json();
+      
+      await this.logAuditEvent('notification_sent', incidentId, {
+        type: notificationType,
+        recipients: recipients.length
+      });
+
+      return { success: true, data: result };
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to send notification' 
       };
     }
   }
@@ -210,3 +289,5 @@ class SecureIncidentService {
 }
 
 export const secureIncidentService = new SecureIncidentService();
+
+}

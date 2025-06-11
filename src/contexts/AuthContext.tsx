@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,6 +55,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     } catch (error) {
       console.error('Failed to log audit event:', error);
+    }
+  };
+
+  const logLoginAttempt = async (email: string, success: boolean) => {
+    try {
+      await supabase.from('login_attempts').insert({
+        email: sanitizeEmail(email),
+        success,
+        attempted_at: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Failed to log login attempt:', error);
+    }
+  };
+
+  const checkLoginAttempts = async (email: string): Promise<boolean> => {
+    try {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('login_attempts')
+        .select('*')
+        .eq('email', sanitizeEmail(email))
+        .eq('success', false)
+        .gte('attempted_at', oneHourAgo);
+
+      if (error) {
+        console.error('Error checking login attempts:', error);
+        return true; // Allow login if we can't check
+      }
+
+      return (data?.length || 0) < 5; // Allow max 5 failed attempts per hour
+    } catch (error) {
+      console.error('Error checking login attempts:', error);
+      return true; // Allow login if we can't check
     }
   };
 
@@ -134,10 +169,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
+      const sanitizedEmail = sanitizeEmail(email);
+      
+      // Check for too many failed attempts
+      const canAttempt = await checkLoginAttempts(sanitizedEmail);
+      if (!canAttempt) {
+        return { error: 'Too many failed login attempts. Please try again later.' };
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: sanitizedEmail,
         password,
       });
+
+      // Log the attempt
+      await logLoginAttempt(sanitizedEmail, !error);
 
       if (error) {
         let errorMessage = 'Login failed';
@@ -158,13 +204,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     try {
+      const sanitizedEmail = sanitizeEmail(email);
+      const sanitizedName = sanitizeText(fullName || '');
+
+      // Validate password strength
+      if (!isPasswordStrong(password)) {
+        return { error: 'Password must be at least 8 characters with uppercase, lowercase, number, and special character' };
+      }
+
       const { error } = await supabase.auth.signUp({
-        email,
+        email: sanitizedEmail,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/dashboard`,
           data: {
-            full_name: fullName || '',
+            full_name: sanitizedName,
           },
         },
       });
@@ -210,7 +264,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resetPassword = async (email: string) => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const sanitizedEmail = sanitizeEmail(email);
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(sanitizedEmail, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
 
@@ -242,3 +298,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
+
+// Security utility functions
+function sanitizeEmail(email: string): string {
+  return email.toLowerCase().trim();
+}
+
+function sanitizeText(text: string): string {
+  return text
+    .replace(/[<>]/g, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+=/gi, '')
+    .trim()
+    .substring(0, 255);
+}
+
+function isPasswordStrong(password: string): boolean {
+  const minLength = 8;
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  
+  return password.length >= minLength && hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar;
+}
