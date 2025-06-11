@@ -91,9 +91,13 @@ class SecureIntegrationService {
       const configs: Record<string, any> = {};
       if (data) {
         data.forEach(config => {
+          const configData = config.config_data && typeof config.config_data === 'object' 
+            ? config.config_data as Record<string, any>
+            : {};
+          
           configs[config.integration_type] = {
             enabled: config.is_enabled,
-            ...(config.config_data || {})
+            ...configData
           };
         });
       }
@@ -131,9 +135,13 @@ class SecureIntegrationService {
         };
       }
 
+      const configData = data.config_data && typeof data.config_data === 'object' 
+        ? data.config_data as Record<string, any>
+        : {};
+
       const config = {
         enabled: data.is_enabled,
-        ...(data.config_data || {})
+        ...configData
       };
 
       return { data: config, error: null };
