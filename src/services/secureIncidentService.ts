@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 
@@ -57,12 +56,21 @@ class SecureIncidentService {
         throw new Error('User not authenticated');
       }
 
+      // Prepare the data for database insertion
+      const insertData = {
+        title: validated.title,
+        description: validated.description,
+        severity: validated.severity,
+        status: validated.status || 'active',
+        assigned_analyst_id: validated.assigned_analyst_id,
+        location_data: validated.location_data,
+        playbook_data: validated.playbook_data,
+        created_by: user.id
+      };
+
       const { data, error } = await supabase
         .from('incidents')
-        .insert({
-          ...validated,
-          created_by: user.id
-        })
+        .insert(insertData)
         .select()
         .single();
 

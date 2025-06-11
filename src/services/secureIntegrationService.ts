@@ -88,13 +88,15 @@ class SecureIntegrationService {
       if (error) throw error;
 
       // Transform data to match the expected format
-      const configs: any = {};
-      data.forEach(config => {
-        configs[config.integration_type] = {
-          enabled: config.is_enabled,
-          ...config.config_data
-        };
-      });
+      const configs: Record<string, any> = {};
+      if (data) {
+        data.forEach(config => {
+          configs[config.integration_type] = {
+            enabled: config.is_enabled,
+            ...(config.config_data || {})
+          };
+        });
+      }
 
       return { data: configs, error: null };
     } catch (error) {
@@ -131,7 +133,7 @@ class SecureIntegrationService {
 
       const config = {
         enabled: data.is_enabled,
-        ...data.config_data
+        ...(data.config_data || {})
       };
 
       return { data: config, error: null };
