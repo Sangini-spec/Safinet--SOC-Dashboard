@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, Globe, Shield, Eye, Database, Target } from 'lucide-react';
+import { Search, Globe, Shield, Eye, Database, Target, Clock } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 
 interface SearchEngine {
@@ -50,6 +50,12 @@ const searchEngines: SearchEngine[] = [
     icon: <Eye className="h-4 w-4" />,
     baseUrl: "https://search.censys.io/search?resource=hosts&sort=RELEVANCE&per_page=25&virtual_hosts=EXCLUDE&q=",
     description: "Internet-wide scanning"
+  },
+  {
+    name: "Wayback Machine",
+    icon: <Clock className="h-4 w-4" />,
+    baseUrl: "https://web.archive.org/web/*/",
+    description: "Historical website snapshots"
   }
 ];
 
