@@ -1,293 +1,394 @@
-import { supabase } from '@/integrations/supabase/client';
-import { z } from 'zod';
+import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 
-// Enhanced validation schemas with better security
-const IncidentCreateSchema = z.object({
-  title: z.string()
-    .min(1, 'Title is required')
-    .max(200, 'Title too long')
-    .regex(/^[a-zA-Z0-9\s\-_.,!?]+$/, 'Title contains invalid characters'),
-  description: z.string()
-    .max(2000, 'Description too long')
-    .regex(/^[a-zA-Z0-9\s\-_.,!?\n\r]+$/, 'Description contains invalid characters')
-    .optional(),
-  severity: z.enum(['low', 'medium', 'high', 'critical']),
-  status: z.enum(['active', 'under-investigation', 'resolved', 'closed']).default('active'),
-  assigned_analyst_id: z.string().uuid().optional(),
-  location_data: z.object({
-    name: z.string().max(100),
-    latitude: z.number().min(-90).max(90),
-    longitude: z.number().min(-180).max(180)
-  }).optional(),
-  playbook_data: z.array(z.object({
-    id: z.string().uuid(),
-    title: z.string().max(200),
-    completed: z.boolean()
-  })).optional()
-});
+// Type definitions and interfaces
+type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
-const IncidentUpdateSchema = IncidentCreateSchema.partial().extend({
-  id: z.string().uuid()
-});
+interface RestError {
+  code: string
+  details?: string
+  hint?: string
+  message: string
+}
 
-export type IncidentCreate = z.infer<typeof IncidentCreateSchema>;
-export type IncidentUpdate = z.infer<typeof IncidentUpdateSchema>;
+interface RestSuccess<T> {
+  body: T
+  error: null
+}
 
-class SecureIncidentService {
-  private async logAuditEvent(action: string, resourceId: string, details?: any) {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+interface RestFailure {
+  body: null
+  error: RestError
+}
 
-      await supabase.from('audit_logs').insert({
-        user_id: user.id,
-        action,
-        resource_type: 'incident',
-        resource_id: resourceId,
-        details,
-        user_agent: navigator.userAgent
-      });
-    } catch (error) {
-      console.error('Failed to log audit event:', error);
+type RestResult<T> = RestSuccess<T> | RestFailure
+
+type Tables<
+  PublicTableNameOrOptions extends
+  | keyof (Database["public"]["Tables"] & { _: never })
+  | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] & { _: never })
+  : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] & { _: never })[TableName]["Row"]
+  : PublicTableNameOrOptions extends keyof (Database["public"]["Tables"] & { _: never })
+  ? (Database["public"]["Tables"] & { _: never })[PublicTableNameOrOptions]["Row"]
+  : never
+
+type Views<
+  PublicTableNameOrOptions extends
+  | keyof (Database["public"]["Views"] & { _: never })
+  | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  ? keyof (Database[PublicTableNameOrOptions["schema"]]["Views"] & { _: never })
+  : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Views"] & { _: never })[TableName]["Row"]
+  : PublicTableNameOrOptions extends keyof (Database["public"]["Views"] & { _: never })
+  ? (Database["public"]["Views"] & { _: never })[PublicTableNameOrOptions]["Row"]
+  : never
+
+type Functions<
+  PublicFunctionNameOrOptions extends
+  | keyof (Database["public"]["Functions"] & { _: never })
+  | { schema: keyof Database },
+  FunctionName extends PublicFunctionNameOrOptions extends { schema: keyof Database }
+  ? keyof (Database[PublicFunctionNameOrOptions["schema"]]["Functions"] & { _: never })
+  : never = never
+> = PublicFunctionNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicFunctionNameOrOptions["schema"]]["Functions"] & { _: never })[FunctionName] extends {
+    Args: any
+  }
+  ? Omit<
+    (Database[PublicFunctionNameOrOptions["schema"]]["Functions"] & { _: never })[FunctionName],
+    "RowFiltering"
+  >
+  : (Database[PublicFunctionNameOrOptions["schema"]]["Functions"] & { _: never })[FunctionName]
+  : PublicFunctionNameOrOptions extends keyof (Database["public"]["Functions"] & { _: never })
+  ? (Database["public"]["Functions"] & { _: never })[PublicFunctionNameOrOptions] extends {
+    Args: any
+  }
+  ? Omit<
+    (Database["public"]["Functions"] & { _: never })[PublicFunctionNameOrOptions],
+    "RowFiltering"
+  >
+  : (Database["public"]["Functions"] & { _: never })[PublicFunctionNameOrOptions]
+  : never
+
+type Enums<
+  EnumName extends keyof (Database["public"]["Enums"] & { _: never })
+> = (Database["public"]["Enums"] & { _: never })[EnumName]
+
+type TablesInsert<
+  PublicTableNameOrOptions extends
+  | keyof Database["public"]["Tables"]
+  | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName]["Insert"]
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+  ? Database["public"]["Tables"][PublicTableNameOrOptions]["Insert"]
+  : never
+
+type TablesUpdate<
+  PublicTableNameOrOptions extends
+  | keyof Database["public"]["Tables"]
+  | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName]["Update"]
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+  ? Database["public"]["Tables"][PublicTableNameOrOptions]["Update"]
+  : never
+
+type TablesRow<
+  PublicTableNameOrOptions extends
+  | keyof Database["public"]["Tables"]
+  | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName]["Row"]
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+  ? Database["public"]["Tables"][PublicTableNameOrOptions]["Row"]
+  : never
+
+type Incident = Database["public"]["Tables"]["incidents"]["Row"];
+type IncidentInsert = Database["public"]["Tables"]["incidents"]["Insert"];
+type IncidentUpdate = Database["public"]["Tables"]["incidents"]["Update"];
+
+interface CreateIncidentData {
+  title: string;
+  description?: string;
+  severity: "low" | "medium" | "high" | "critical";
+  status?: string;
+  assigned_analyst_id?: string;
+  location_data?: any;
+  playbook_data?: any;
+}
+
+interface UpdateIncidentData {
+  title?: string;
+  description?: string;
+  severity?: "low" | "medium" | "high" | "critical";
+  status?: string;
+  assigned_analyst_id?: string;
+  location_data?: any;
+  playbook_data?: any;
+  resolution_time?: string;
+}
+
+// Input validation and sanitization
+const validateIncidentData = (data: CreateIncidentData): void => {
+  if (!data.title || data.title.trim().length === 0) {
+    throw new Error("Title is required");
+  }
+  if (data.title.length > 200) {
+    throw new Error("Title must be less than 200 characters");
+  }
+  if (data.description && data.description.length > 2000) {
+    throw new Error("Description must be less than 2000 characters");
+  }
+  if (!["low", "medium", "high", "critical"].includes(data.severity)) {
+    throw new Error("Invalid severity level");
+  }
+};
+
+const sanitizeInput = (input: string): string => {
+  return input.trim().replace(/[<>]/g, "");
+};
+
+// Authorization checks
+const checkUserPermissions = async (userId: string, action: string): Promise<boolean> => {
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, is_active")
+      .eq("id", userId)
+      .single();
+
+    if (!profile || !profile.is_active) {
+      return false;
     }
-  }
 
-  private sanitizeIncidentData(data: any): any {
-    return {
-      ...data,
-      title: this.sanitizeText(data.title),
-      description: data.description ? this.sanitizeText(data.description) : undefined,
-      location_data: data.location_data ? {
-        name: this.sanitizeText(data.location_data.name),
-        latitude: Number(data.location_data.latitude),
-        longitude: Number(data.location_data.longitude)
-      } : undefined
+    // Role-based access control
+    const permissions = {
+      admin: ["create", "read", "update", "delete"],
+      analyst: ["create", "read", "update"],
+      viewer: ["read"]
     };
-  }
 
-  private sanitizeText(text: string): string {
-    return text
-      .replace(/[<>]/g, '')
-      .replace(/javascript:/gi, '')
-      .replace(/on\w+=/gi, '')
-      .trim();
+    return permissions[profile.role as keyof typeof permissions]?.includes(action) || false;
+  } catch (error) {
+    console.error("Permission check failed:", error);
+    return false;
   }
+};
 
-  async createIncident(incidentData: IncidentCreate) {
+// Audit logging
+const logActivity = async (action: string, resourceId?: string, details?: any): Promise<void> => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase.from("audit_logs").insert({
+      user_id: user.id,
+      action,
+      resource_type: "incident",
+      resource_id: resourceId,
+      details,
+      ip_address: "127.0.0.1", // In production, get real IP
+      user_agent: navigator.userAgent
+    });
+  } catch (error) {
+    console.error("Failed to log activity:", error);
+  }
+};
+
+// Secure incident service functions
+export const secureIncidentService = {
+  async createIncident(data: CreateIncidentData): Promise<Incident> {
     try {
-      // Validate input
-      const validated = IncidentCreateSchema.parse(incidentData);
-      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        throw new Error('User not authenticated');
+        throw new Error("Authentication required");
       }
 
-      // Sanitize the data
-      const sanitized = this.sanitizeIncidentData(validated);
+      // Check permissions
+      const hasPermission = await checkUserPermissions(user.id, "create");
+      if (!hasPermission) {
+        throw new Error("Insufficient permissions to create incidents");
+      }
 
-      // Prepare the data for database insertion
-      const insertData = {
-        title: sanitized.title,
-        description: sanitized.description,
-        severity: sanitized.severity,
-        status: sanitized.status || 'active',
-        assigned_analyst_id: sanitized.assigned_analyst_id,
-        location_data: sanitized.location_data,
-        playbook_data: sanitized.playbook_data,
+      // Validate and sanitize input
+      validateIncidentData(data);
+      const sanitizedData = {
+        ...data,
+        title: sanitizeInput(data.title),
+        description: data.description ? sanitizeInput(data.description) : undefined,
         created_by: user.id
       };
 
-      const { data, error } = await supabase
-        .from('incidents')
-        .insert(insertData)
+      const { data: incident, error } = await supabase
+        .from("incidents")
+        .insert(sanitizedData)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(`Failed to create incident: ${error.message}`);
+      }
 
-      await this.logAuditEvent('incident_created', data.id, {
-        title: data.title,
-        severity: data.severity
-      });
+      // Log the activity
+      await logActivity("create", incident.id, { title: incident.title });
 
-      return { data, error: null };
+      return incident;
     } catch (error) {
-      console.error('Error creating incident:', error);
-      return { 
-        data: null, 
-        error: error instanceof Error ? error.message : 'Failed to create incident' 
-      };
+      console.error("Create incident error:", error);
+      throw error;
     }
-  }
+  },
 
-  async updateIncident(incidentData: IncidentUpdate) {
+  async getIncidents(): Promise<Incident[]> {
     try {
-      // Validate input
-      const validated = IncidentUpdateSchema.parse(incidentData);
-      const { id, ...updateData } = validated;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("Authentication required");
+      }
 
-      // Sanitize the data
-      const sanitized = this.sanitizeIncidentData(updateData);
+      // Check permissions
+      const hasPermission = await checkUserPermissions(user.id, "read");
+      if (!hasPermission) {
+        throw new Error("Insufficient permissions to read incidents");
+      }
 
-      const { data, error } = await supabase
-        .from('incidents')
-        .update(sanitized)
-        .eq('id', id)
+      const { data: incidents, error } = await supabase
+        .from("incidents")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        throw new Error(`Failed to fetch incidents: ${error.message}`);
+      }
+
+      return incidents || [];
+    } catch (error) {
+      console.error("Get incidents error:", error);
+      throw error;
+    }
+  },
+
+  async getIncidentById(id: string): Promise<Incident | null> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("Authentication required");
+      }
+
+      // Check permissions
+      const hasPermission = await checkUserPermissions(user.id, "read");
+      if (!hasPermission) {
+        throw new Error("Insufficient permissions to read incidents");
+      }
+
+      const { data: incident, error } = await supabase
+        .from("incidents")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (error) {
+        throw new Error(`Failed to fetch incident: ${error.message}`);
+      }
+
+      return incident;
+    } catch (error) {
+      console.error("Get incident by ID error:", error);
+      throw error;
+    }
+  },
+
+  async updateIncident(id: string, updates: UpdateIncidentData): Promise<Incident> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("Authentication required");
+      }
+
+      // Check permissions
+      const hasPermission = await checkUserPermissions(user.id, "update");
+      if (!hasPermission) {
+        throw new Error("Insufficient permissions to update incidents");
+      }
+
+      // Sanitize updates
+      const sanitizedUpdates = {
+        ...updates,
+        title: updates.title ? sanitizeInput(updates.title) : undefined,
+        description: updates.description ? sanitizeInput(updates.description) : undefined,
+        updated_at: new Date().toISOString()
+      };
+
+      const { data: incident, error } = await supabase
+        .from("incidents")
+        .update(sanitizedUpdates)
+        .eq("id", id)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(`Failed to update incident: ${error.message}`);
+      }
 
-      await this.logAuditEvent('incident_updated', id, sanitized);
+      // Log the activity
+      await logActivity("update", id, sanitizedUpdates);
 
-      return { data, error: null };
+      return incident;
     } catch (error) {
-      console.error('Error updating incident:', error);
-      return { 
-        data: null, 
-        error: error instanceof Error ? error.message : 'Failed to update incident' 
-      };
+      console.error("Update incident error:", error);
+      throw error;
     }
-  }
+  },
 
-  async sendNotification(incidentId: string, notificationType: 'email' | 'sms' | 'slack', recipients: string[], message: string) {
+  async deleteIncident(id: string): Promise<void> {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('User not authenticated');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("Authentication required");
       }
 
-      // Use the secure proxy for sending notifications
-      const response = await fetch('/functions/v1/secure-integration-proxy', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          integrationType: notificationType,
-          action: 'send',
-          data: {
-            recipients,
-            message: this.sanitizeText(message),
-            incidentId
-          }
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to send notification');
+      // Check permissions
+      const hasPermission = await checkUserPermissions(user.id, "delete");
+      if (!hasPermission) {
+        throw new Error("Insufficient permissions to delete incidents");
       }
 
-      const result = await response.json();
-      
-      await this.logAuditEvent('notification_sent', incidentId, {
-        type: notificationType,
-        recipients: recipients.length
-      });
-
-      return { success: true, data: result };
-    } catch (error) {
-      console.error('Error sending notification:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to send notification' 
-      };
-    }
-  }
-
-  async getIncidents(filters?: {
-    severity?: string;
-    status?: string;
-    limit?: number;
-    offset?: number;
-  }) {
-    try {
-      let query = supabase
-        .from('incidents')
-        .select(`
-          *,
-          assigned_analyst:assigned_analyst_id(full_name),
-          created_by_profile:created_by(id)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (filters?.severity && filters.severity !== 'all') {
-        query = query.eq('severity', filters.severity);
-      }
-
-      if (filters?.status && filters.status !== 'all') {
-        query = query.eq('status', filters.status);
-      }
-
-      if (filters?.limit) {
-        query = query.limit(filters.limit);
-      }
-
-      if (filters?.offset) {
-        query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      return { data, error: null };
-    } catch (error) {
-      console.error('Error fetching incidents:', error);
-      return { 
-        data: null, 
-        error: error instanceof Error ? error.message : 'Failed to fetch incidents' 
-      };
-    }
-  }
-
-  async getIncidentById(id: string) {
-    try {
-      const { data, error } = await supabase
-        .from('incidents')
-        .select(`
-          *,
-          assigned_analyst:assigned_analyst_id(full_name, email),
-          created_by_profile:created_by(id)
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-
-      return { data, error: null };
-    } catch (error) {
-      console.error('Error fetching incident:', error);
-      return { 
-        data: null, 
-        error: error instanceof Error ? error.message : 'Failed to fetch incident' 
-      };
-    }
-  }
-
-  async deleteIncident(id: string) {
-    try {
       const { error } = await supabase
-        .from('incidents')
+        .from("incidents")
         .delete()
-        .eq('id', id);
+        .eq("id", id);
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(`Failed to delete incident: ${error.message}`);
+      }
 
-      await this.logAuditEvent('incident_deleted', id);
-
-      return { error: null };
+      // Log the activity
+      await logActivity("delete", id);
     } catch (error) {
-      console.error('Error deleting incident:', error);
-      return { 
-        error: error instanceof Error ? error.message : 'Failed to delete incident' 
-      };
+      console.error("Delete incident error:", error);
+      throw error;
     }
   }
-}
-
-export const secureIncidentService = new SecureIncidentService();
-
-}
+};
