@@ -49,9 +49,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user_id: user.id,
         action,
         resource_type: resourceType,
-        details,
+        details: sanitizeJSON(details),
         ip_address: null, // Would need additional setup to capture real IP
-        user_agent: navigator.userAgent
+        user_agent: navigator.userAgent.substring(0, 500)
       });
     } catch (error) {
       console.error('Failed to log audit event:', error);
@@ -72,20 +72,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkLoginAttempts = async (email: string): Promise<boolean> => {
     try {
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      const { data, error } = await supabase
-        .from('login_attempts')
-        .select('*')
-        .eq('email', sanitizeEmail(email))
-        .eq('success', false)
-        .gte('attempted_at', oneHourAgo);
+      const sanitizedEmail = sanitizeEmail(email);
+      
+      // Use the new security function
+      const { data, error } = await supabase.rpc('check_account_lockout', {
+        user_email: sanitizedEmail
+      });
 
       if (error) {
         console.error('Error checking login attempts:', error);
         return true; // Allow login if we can't check
       }
 
-      return (data?.length || 0) < 5; // Allow max 5 failed attempts per hour
+      return data;
     } catch (error) {
       console.error('Error checking login attempts:', error);
       return true; // Allow login if we can't check
@@ -98,10 +97,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching profile:', error);
+        return null;
+      }
+
+      if (!data) {
         return null;
       }
 
@@ -117,15 +120,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        // Clear any existing timeout
+        if (timeoutId) clearTimeout(timeoutId);
+
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile
-          setTimeout(async () => {
+          // Debounce profile fetching to prevent race conditions
+          timeoutId = setTimeout(async () => {
             const profileData = await fetchProfile(session.user.id);
             setProfile(profileData);
             
@@ -140,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (event === 'SIGNED_IN') {
               await logAuditEvent('user_login', 'auth');
             }
-          }, 0);
+          }, 100);
         } else {
           setProfile(null);
         }
@@ -155,26 +163,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        setTimeout(async () => {
+        timeoutId = setTimeout(async () => {
           const profileData = await fetchProfile(session.user.id);
           setProfile(profileData);
-        }, 0);
+        }, 100);
       }
       
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
       const sanitizedEmail = sanitizeEmail(email);
       
-      // Check for too many failed attempts
+      // Enhanced validation
+      if (!isValidEmail(sanitizedEmail)) {
+        return { error: 'Invalid email format' };
+      }
+
+      if (!password || password.length < 6) {
+        return { error: 'Password must be at least 6 characters' };
+      }
+
+      // Check for account lockout
       const canAttempt = await checkLoginAttempts(sanitizedEmail);
       if (!canAttempt) {
-        return { error: 'Too many failed login attempts. Please try again later.' };
+        return { error: 'Account temporarily locked due to multiple failed attempts. Please try again later.' };
       }
 
       const { error } = await supabase.auth.signInWithPassword({
@@ -191,6 +211,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           errorMessage = 'Invalid email or password';
         } else if (error.message.includes('Email not confirmed')) {
           errorMessage = 'Please check your email and click the confirmation link';
+        } else if (error.message.includes('too many requests')) {
+          errorMessage = 'Too many login attempts. Please try again later.';
         }
         return { error: errorMessage };
       }
@@ -206,6 +228,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const sanitizedEmail = sanitizeEmail(email);
       const sanitizedName = sanitizeText(fullName || '');
+
+      // Enhanced validation
+      if (!isValidEmail(sanitizedEmail)) {
+        return { error: 'Invalid email format' };
+      }
 
       // Validate password strength
       if (!isPasswordStrong(password)) {
@@ -229,6 +256,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           errorMessage = 'An account with this email already exists';
         } else if (error.message.includes('Password should be')) {
           errorMessage = 'Password must be at least 6 characters long';
+        } else if (error.message.includes('rate limit')) {
+          errorMessage = 'Too many registration attempts. Please try again later.';
         }
         return { error: errorMessage };
       }
@@ -266,6 +295,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const sanitizedEmail = sanitizeEmail(email);
       
+      if (!isValidEmail(sanitizedEmail)) {
+        return { error: 'Invalid email format' };
+      }
+      
       const { error } = await supabase.auth.resetPasswordForEmail(sanitizedEmail, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
@@ -299,9 +332,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-// Security utility functions
+// Enhanced security utility functions
 function sanitizeEmail(email: string): string {
-  return email.toLowerCase().trim();
+  return email.toLowerCase().trim().replace(/[^\w@.-]/g, '');
 }
 
 function sanitizeText(text: string): string {
@@ -309,8 +342,29 @@ function sanitizeText(text: string): string {
     .replace(/[<>]/g, '')
     .replace(/javascript:/gi, '')
     .replace(/on\w+=/gi, '')
+    .replace(/data:/gi, '')
+    .replace(/vbscript:/gi, '')
     .trim()
     .substring(0, 255);
+}
+
+function sanitizeJSON(obj: any): any {
+  if (typeof obj === 'string') {
+    return sanitizeText(obj);
+  }
+  if (typeof obj === 'object' && obj !== null) {
+    const sanitized: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      sanitized[sanitizeText(key)] = sanitizeJSON(value);
+    }
+    return sanitized;
+  }
+  return obj;
+}
+
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email) && email.length <= 254;
 }
 
 function isPasswordStrong(password: string): boolean {

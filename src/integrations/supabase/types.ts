@@ -196,6 +196,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_account_lockout: {
+        Args: { user_email: string }
+        Returns: boolean
+      }
+      cleanup_old_audit_logs: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       cleanup_old_login_attempts: {
         Args: Record<PropertyKey, never>
         Returns: undefined

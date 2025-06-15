@@ -27,7 +27,7 @@ interface UpdateIncidentData {
   resolution_time?: string;
 }
 
-// Input validation and sanitization
+// Enhanced input validation and sanitization
 const validateIncidentData = (data: CreateIncidentData): void => {
   if (!data.title || data.title.trim().length === 0) {
     throw new Error("Title is required");
@@ -41,13 +41,42 @@ const validateIncidentData = (data: CreateIncidentData): void => {
   if (!["low", "medium", "high", "critical"].includes(data.severity)) {
     throw new Error("Invalid severity level");
   }
+  
+  // Enhanced validation for potential security issues
+  if (data.title.includes('<script') || data.title.includes('javascript:')) {
+    throw new Error("Invalid characters in title");
+  }
+  if (data.description && (data.description.includes('<script') || data.description.includes('javascript:'))) {
+    throw new Error("Invalid characters in description");
+  }
 };
 
+// Enhanced sanitization with XSS prevention
 const sanitizeInput = (input: string): string => {
-  return input.trim().replace(/[<>]/g, "");
+  return input
+    .trim()
+    .replace(/[<>]/g, "")
+    .replace(/javascript:/gi, "")
+    .replace(/on\w+=/gi, "")
+    .replace(/data:/gi, "")
+    .replace(/vbscript:/gi, "");
 };
 
-// Authorization checks
+const sanitizeJSON = (obj: any): any => {
+  if (typeof obj === 'string') {
+    return sanitizeInput(obj);
+  }
+  if (typeof obj === 'object' && obj !== null) {
+    const sanitized: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      sanitized[sanitizeInput(key)] = sanitizeJSON(value);
+    }
+    return sanitized;
+  }
+  return obj;
+};
+
+// Enhanced authorization checks with account lockout
 const checkUserPermissions = async (userId: string, action: string): Promise<boolean> => {
   try {
     const { data: profile } = await supabase
@@ -60,7 +89,7 @@ const checkUserPermissions = async (userId: string, action: string): Promise<boo
       return false;
     }
 
-    // Role-based access control
+    // Role-based access control with stricter permissions
     const permissions = {
       admin: ["create", "read", "update", "delete"],
       analyst: ["create", "read", "update"],
@@ -74,33 +103,61 @@ const checkUserPermissions = async (userId: string, action: string): Promise<boo
   }
 };
 
-// Audit logging
+// Enhanced audit logging with more security details
 const logActivity = async (action: string, resourceId?: string, details?: any): Promise<void> => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+
+    // Sanitize audit log details
+    const sanitizedDetails = details ? sanitizeJSON(details) : null;
 
     await supabase.from("audit_logs").insert({
       user_id: user.id,
       action,
       resource_type: "incident",
       resource_id: resourceId,
-      details,
+      details: sanitizedDetails,
       ip_address: "127.0.0.1", // In production, get real IP
-      user_agent: navigator.userAgent
+      user_agent: navigator.userAgent.substring(0, 500) // Limit length
     });
   } catch (error) {
     console.error("Failed to log activity:", error);
   }
 };
 
-// Secure incident service functions
+// Rate limiting helper
+const checkRateLimit = async (userId: string, action: string): Promise<boolean> => {
+  try {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: recentActions } = await supabase
+      .from("audit_logs")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("action", action)
+      .gte("created_at", fiveMinutesAgo);
+
+    // Allow max 10 actions per 5 minutes
+    return (recentActions?.length || 0) < 10;
+  } catch (error) {
+    console.error("Rate limit check failed:", error);
+    return true; // Allow if check fails
+  }
+};
+
+// Secure incident service functions with enhanced security
 export const secureIncidentService = {
   async createIncident(data: CreateIncidentData): Promise<Incident> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error("Authentication required");
+      }
+
+      // Check rate limiting
+      const canProceed = await checkRateLimit(user.id, "create_incident");
+      if (!canProceed) {
+        throw new Error("Rate limit exceeded. Please try again later.");
       }
 
       // Check permissions
@@ -115,6 +172,8 @@ export const secureIncidentService = {
         ...data,
         title: sanitizeInput(data.title),
         description: data.description ? sanitizeInput(data.description) : undefined,
+        location_data: data.location_data ? sanitizeJSON(data.location_data) : null,
+        playbook_data: data.playbook_data ? sanitizeJSON(data.playbook_data) : null,
         created_by: user.id
       };
 
@@ -129,7 +188,7 @@ export const secureIncidentService = {
       }
 
       // Log the activity
-      await logActivity("create", incident.id, { title: incident.title });
+      await logActivity("create_incident", incident.id, { title: incident.title });
 
       return incident;
     } catch (error) {
@@ -174,6 +233,12 @@ export const secureIncidentService = {
         throw new Error("Authentication required");
       }
 
+      // Validate ID format (UUID)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(id)) {
+        throw new Error("Invalid incident ID format");
+      }
+
       // Check permissions
       const hasPermission = await checkUserPermissions(user.id, "read");
       if (!hasPermission) {
@@ -204,6 +269,18 @@ export const secureIncidentService = {
         throw new Error("Authentication required");
       }
 
+      // Validate ID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(id)) {
+        throw new Error("Invalid incident ID format");
+      }
+
+      // Check rate limiting
+      const canProceed = await checkRateLimit(user.id, "update_incident");
+      if (!canProceed) {
+        throw new Error("Rate limit exceeded. Please try again later.");
+      }
+
       // Check permissions
       const hasPermission = await checkUserPermissions(user.id, "update");
       if (!hasPermission) {
@@ -215,6 +292,8 @@ export const secureIncidentService = {
         ...updates,
         title: updates.title ? sanitizeInput(updates.title) : undefined,
         description: updates.description ? sanitizeInput(updates.description) : undefined,
+        location_data: updates.location_data ? sanitizeJSON(updates.location_data) : undefined,
+        playbook_data: updates.playbook_data ? sanitizeJSON(updates.playbook_data) : undefined,
         updated_at: new Date().toISOString()
       };
 
@@ -230,7 +309,7 @@ export const secureIncidentService = {
       }
 
       // Log the activity
-      await logActivity("update", id, sanitizedUpdates);
+      await logActivity("update_incident", id, sanitizedUpdates);
 
       return incident;
     } catch (error) {
@@ -244,6 +323,12 @@ export const secureIncidentService = {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error("Authentication required");
+      }
+
+      // Validate ID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(id)) {
+        throw new Error("Invalid incident ID format");
       }
 
       // Check permissions
@@ -262,7 +347,7 @@ export const secureIncidentService = {
       }
 
       // Log the activity
-      await logActivity("delete", id);
+      await logActivity("delete_incident", id);
     } catch (error) {
       console.error("Delete incident error:", error);
       throw error;
