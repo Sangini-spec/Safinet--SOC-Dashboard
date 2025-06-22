@@ -1,14 +1,22 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
+import { encryptionService } from './encryptionService';
+import { rateLimiter, RATE_LIMITS } from '@/utils/rateLimiter';
+import { sanitizeJSON } from '@/utils/securityUtils';
 
-// Validation schemas
+// Enhanced validation schemas with stricter rules
 const IntegrationConfigSchema = z.object({
   integration_type: z.enum(['splunk', 'slack', 'virusTotal', 'cloudWatch']),
   config_data: z.object({
-    apiKey: z.string().optional(),
-    webhookUrl: z.string().url().optional(),
+    apiKey: z.string().min(1).max(500).optional(),
+    webhookUrl: z.string().url().max(2000).optional(),
     enabled: z.boolean().default(false)
+  }).refine(data => {
+    // Ensure at least one required field is present
+    return data.apiKey || data.webhookUrl;
+  }, {
+    message: "Either apiKey or webhookUrl must be provided"
   }),
   is_enabled: z.boolean().default(false)
 });
@@ -26,32 +34,57 @@ class SecureIntegrationService {
         action,
         resource_type: 'integration',
         resource_id: integrationType,
-        details,
-        user_agent: navigator.userAgent
+        details: sanitizeJSON(details),
+        user_agent: navigator.userAgent.substring(0, 500)
       });
     } catch (error) {
       console.error('Failed to log audit event:', error);
     }
   }
 
+  private async checkRateLimit(userId: string, action: string): Promise<boolean> {
+    const key = `${userId}:${action}`;
+    return rateLimiter.isAllowed(key, RATE_LIMITS.INTEGRATION_SAVE);
+  }
+
   async saveIntegrationConfig(config: IntegrationConfig) {
     try {
-      // Validate input
-      const validated = IntegrationConfigSchema.parse(config);
-      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error('User not authenticated');
       }
 
-      // Note: In a production environment, API keys should be encrypted
-      // before storing. For now, we store them in the config_data JSONB field
+      // Check rate limiting
+      const canProceed = await this.checkRateLimit(user.id, 'save_integration');
+      if (!canProceed) {
+        const waitTime = rateLimiter.getWaitTime(`${user.id}:save_integration`, RATE_LIMITS.INTEGRATION_SAVE);
+        throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds.`);
+      }
+
+      // Validate input with enhanced schema
+      const validated = IntegrationConfigSchema.parse(config);
+      
+      // Encrypt API key if present
+      let configData = { ...validated.config_data };
+      if (configData.apiKey) {
+        configData.apiKey = await encryptionService.encryptApiKey(configData.apiKey);
+      }
+
+      // Sanitize webhook URL
+      if (configData.webhookUrl) {
+        const url = new URL(configData.webhookUrl);
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          throw new Error('Invalid webhook URL protocol');
+        }
+        configData.webhookUrl = url.toString();
+      }
+
       const { data, error } = await supabase
         .from('integration_configs')
         .upsert({
           user_id: user.id,
           integration_type: validated.integration_type,
-          config_data: validated.config_data,
+          config_data: configData,
           is_enabled: validated.is_enabled
         })
         .select()
@@ -60,7 +93,9 @@ class SecureIntegrationService {
       if (error) throw error;
 
       await this.logAuditEvent('integration_configured', validated.integration_type, {
-        enabled: validated.is_enabled
+        enabled: validated.is_enabled,
+        hasApiKey: !!validated.config_data.apiKey,
+        hasWebhook: !!validated.config_data.webhookUrl
       });
 
       return { data, error: null };
@@ -87,19 +122,29 @@ class SecureIntegrationService {
 
       if (error) throw error;
 
-      // Transform data to match the expected format
+      // Transform data and decrypt API keys
       const configs: Record<string, any> = {};
       if (data) {
-        data.forEach(config => {
+        for (const config of data) {
           const configData = config.config_data && typeof config.config_data === 'object' 
             ? config.config_data as Record<string, any>
             : {};
+          
+          // Decrypt API key if present
+          if (configData.apiKey) {
+            try {
+              configData.apiKey = await encryptionService.decryptApiKey(configData.apiKey);
+            } catch (error) {
+              console.error('Failed to decrypt API key:', error);
+              configData.apiKey = ''; // Reset if decryption fails
+            }
+          }
           
           configs[config.integration_type] = {
             enabled: config.is_enabled,
             ...configData
           };
-        });
+        }
       }
 
       return { data: configs, error: null };
@@ -117,6 +162,11 @@ class SecureIntegrationService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error('User not authenticated');
+      }
+
+      // Validate integration type
+      if (!['splunk', 'slack', 'virusTotal', 'cloudWatch'].includes(integrationType)) {
+        throw new Error('Invalid integration type');
       }
 
       const { data, error } = await supabase
@@ -139,6 +189,16 @@ class SecureIntegrationService {
         ? data.config_data as Record<string, any>
         : {};
 
+      // Decrypt API key if present
+      if (configData.apiKey) {
+        try {
+          configData.apiKey = await encryptionService.decryptApiKey(configData.apiKey);
+        } catch (error) {
+          console.error('Failed to decrypt API key:', error);
+          configData.apiKey = '';
+        }
+      }
+
       const config = {
         enabled: data.is_enabled,
         ...configData
@@ -156,15 +216,35 @@ class SecureIntegrationService {
 
   async testIntegration(integrationType: string) {
     try {
-      // This would typically call an Edge Function to test the integration
-      // For now, we'll simulate a test
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Check rate limiting for testing
+      const canProceed = await this.checkRateLimit(user.id, 'test_integration');
+      if (!canProceed) {
+        throw new Error('Rate limit exceeded for integration testing');
+      }
+
+      // Call the secure integration proxy edge function
+      const { data, error } = await supabase.functions.invoke('secure-integration-proxy', {
+        body: {
+          integrationType,
+          action: 'test',
+          data: {}
+        }
+      });
+
+      if (error) throw error;
       
-      await this.logAuditEvent('integration_tested', integrationType);
+      await this.logAuditEvent('integration_tested', integrationType, {
+        success: data.success
+      });
       
       return { 
-        success: true, 
-        message: 'Integration test successful',
+        success: data.success, 
+        message: data.message || 'Integration test completed',
         error: null 
       };
     } catch (error) {
