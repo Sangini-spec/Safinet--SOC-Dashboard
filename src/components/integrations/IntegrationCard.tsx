@@ -83,7 +83,7 @@ const IntegrationCard: React.FC<ExtendedIntegrationCardProps> = ({
           <div>
             <CardTitle className="text-xl flex items-center gap-2">
               {title}
-              <Shield className="h-4 w-4 text-green-600" title="Secured with encryption" />
+              <Shield className="h-4 w-4 text-green-600" />
             </CardTitle>
             <CardDescription>{description}</CardDescription>
           </div>
@@ -100,7 +100,7 @@ const IntegrationCard: React.FC<ExtendedIntegrationCardProps> = ({
             <div className="grid w-full items-center gap-1.5">
               <Label htmlFor={`${keyName}-api-key`} className="flex items-center gap-2">
                 {apiKeyLabel}
-                <Shield className="h-3 w-3 text-green-600" title="Encrypted storage" />
+                <Shield className="h-3 w-3 text-green-600" />
               </Label>
               <div className="relative">
                 <Input
