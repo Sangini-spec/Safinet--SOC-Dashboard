@@ -148,7 +148,7 @@ const Integrations = () => {
       
       toast({
         title: "Settings Saved",
-        description: "Your integration settings have been saved securely.",
+        description: "Your integration settings have been saved successfully.",
         variant: "default",
       });
     } catch (error) {
@@ -179,11 +179,6 @@ const Integrations = () => {
       <div>
         <h1 className="text-2xl font-bold">Integrations</h1>
         <p className="text-muted-foreground">Connect SafiNet with your security tools and services</p>
-        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-sm text-blue-700">
-            🔒 All API keys are encrypted and stored securely. Integration data is protected with enterprise-grade security.
-          </p>
-        </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Check, Shield, Eye, EyeOff } from "lucide-react";
+import { Check, Eye, EyeOff } from "lucide-react";
 import { IntegrationCardProps } from "@/types/integrations";
 
 interface ExtendedIntegrationCardProps extends IntegrationCardProps {
@@ -81,9 +81,8 @@ const IntegrationCard: React.FC<ExtendedIntegrationCardProps> = ({
             {icon}
           </div>
           <div>
-            <CardTitle className="text-xl flex items-center gap-2">
+            <CardTitle className="text-xl">
               {title}
-              <Shield className="h-4 w-4 text-green-600" />
             </CardTitle>
             <CardDescription>{description}</CardDescription>
           </div>
@@ -98,9 +97,8 @@ const IntegrationCard: React.FC<ExtendedIntegrationCardProps> = ({
         <div className="space-y-4">
           {requiresApiKey && (
             <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor={`${keyName}-api-key`} className="flex items-center gap-2">
+              <Label htmlFor={`${keyName}-api-key`}>
                 {apiKeyLabel}
-                <Shield className="h-3 w-3 text-green-600" />
               </Label>
               <div className="relative">
                 <Input
