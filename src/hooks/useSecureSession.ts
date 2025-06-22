@@ -18,7 +18,6 @@ export const useSecureSession = () => {
     warningShownRef.current = false;
     
     if (user) {
-      // Set warning at 25 minutes (5 minutes before timeout)
       const warningTimeout = setTimeout(() => {
         if (!warningShownRef.current) {
           warningShownRef.current = true;
@@ -30,14 +29,17 @@ export const useSecureSession = () => {
         }
       }, SESSION_TIMEOUT - 5 * 60 * 1000);
 
-      // Set actual timeout at 30 minutes
       timeoutRef.current = scheduleSessionTimeout(async () => {
         toast({
           title: "Session Expired",
           description: "You have been logged out due to inactivity.",
           variant: "destructive",
         });
-        await signOut();
+        try {
+          await signOut();
+        } catch (error) {
+          console.error('Error signing out:', error);
+        }
       });
     }
   };
@@ -46,7 +48,6 @@ export const useSecureSession = () => {
     if (user) {
       resetSessionTimeout();
 
-      // Reset timeout on user activity
       const activities = ['mousedown', 'keydown', 'scroll', 'touchstart'];
       const resetHandler = () => resetSessionTimeout();
 

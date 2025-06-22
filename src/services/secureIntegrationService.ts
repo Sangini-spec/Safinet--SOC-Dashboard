@@ -13,7 +13,6 @@ const IntegrationConfigSchema = z.object({
     webhookUrl: z.string().url().max(2000).optional(),
     enabled: z.boolean().default(false)
   }).refine(data => {
-    // Ensure at least one required field is present
     return data.apiKey || data.webhookUrl;
   }, {
     message: "Either apiKey or webhookUrl must be provided"
@@ -26,19 +25,26 @@ export type IntegrationConfig = z.infer<typeof IntegrationConfigSchema>;
 class SecureIntegrationService {
   private async logAuditEvent(action: string, integrationType: string, details?: any) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.warn('Unable to log audit event - user not authenticated');
+        return;
+      }
 
-      await supabase.from('audit_logs').insert({
+      const { error } = await supabase.from('audit_logs').insert({
         user_id: user.id,
         action,
         resource_type: 'integration',
         resource_id: integrationType,
         details: sanitizeJSON(details),
-        user_agent: navigator.userAgent.substring(0, 500)
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent.substring(0, 500) : null
       });
+
+      if (error) {
+        console.error('Failed to log audit event:', error);
+      }
     } catch (error) {
-      console.error('Failed to log audit event:', error);
+      console.error('Audit logging error:', error);
     }
   }
 
@@ -49,28 +55,27 @@ class SecureIntegrationService {
 
   async saveIntegrationConfig(config: IntegrationConfig) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        throw new Error(`Authentication error: ${userError.message}`);
+      }
       if (!user) {
         throw new Error('User not authenticated');
       }
 
-      // Check rate limiting
       const canProceed = await this.checkRateLimit(user.id, 'save_integration');
       if (!canProceed) {
         const waitTime = rateLimiter.getWaitTime(`${user.id}:save_integration`, RATE_LIMITS.INTEGRATION_SAVE);
         throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds.`);
       }
 
-      // Validate input with enhanced schema
       const validated = IntegrationConfigSchema.parse(config);
       
-      // Encrypt API key if present
       let configData = { ...validated.config_data };
       if (configData.apiKey) {
         configData.apiKey = await encryptionService.encryptApiKey(configData.apiKey);
       }
 
-      // Sanitize webhook URL
       if (configData.webhookUrl) {
         const url = new URL(configData.webhookUrl);
         if (!['http:', 'https:'].includes(url.protocol)) {
@@ -90,7 +95,9 @@ class SecureIntegrationService {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(`Database error: ${error.message}`);
+      }
 
       await this.logAuditEvent('integration_configured', validated.integration_type, {
         enabled: validated.is_enabled,
@@ -100,17 +107,21 @@ class SecureIntegrationService {
 
       return { data, error: null };
     } catch (error) {
-      console.error('Error saving integration config:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save integration config';
+      console.error('Error saving integration config:', errorMessage);
       return { 
         data: null, 
-        error: error instanceof Error ? error.message : 'Failed to save integration config' 
+        error: errorMessage
       };
     }
   }
 
   async getIntegrationConfigs() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        throw new Error(`Authentication error: ${userError.message}`);
+      }
       if (!user) {
         throw new Error('User not authenticated');
       }
@@ -120,23 +131,23 @@ class SecureIntegrationService {
         .select('*')
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(`Database error: ${error.message}`);
+      }
 
-      // Transform data and decrypt API keys
       const configs: Record<string, any> = {};
-      if (data) {
+      if (data && Array.isArray(data)) {
         for (const config of data) {
           const configData = config.config_data && typeof config.config_data === 'object' 
             ? config.config_data as Record<string, any>
             : {};
           
-          // Decrypt API key if present
           if (configData.apiKey) {
             try {
               configData.apiKey = await encryptionService.decryptApiKey(configData.apiKey);
             } catch (error) {
               console.error('Failed to decrypt API key:', error);
-              configData.apiKey = ''; // Reset if decryption fails
+              configData.apiKey = '';
             }
           }
           
@@ -149,22 +160,25 @@ class SecureIntegrationService {
 
       return { data: configs, error: null };
     } catch (error) {
-      console.error('Error fetching integration configs:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch integration configs';
+      console.error('Error fetching integration configs:', errorMessage);
       return { 
         data: null, 
-        error: error instanceof Error ? error.message : 'Failed to fetch integration configs' 
+        error: errorMessage
       };
     }
   }
 
   async getIntegrationConfig(integrationType: string) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        throw new Error(`Authentication error: ${userError.message}`);
+      }
       if (!user) {
         throw new Error('User not authenticated');
       }
 
-      // Validate integration type
       if (!['splunk', 'slack', 'virusTotal', 'cloudWatch'].includes(integrationType)) {
         throw new Error('Invalid integration type');
       }
@@ -176,7 +190,9 @@ class SecureIntegrationService {
         .eq('integration_type', integrationType)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(`Database error: ${error.message}`);
+      }
 
       if (!data) {
         return { 
@@ -189,7 +205,6 @@ class SecureIntegrationService {
         ? data.config_data as Record<string, any>
         : {};
 
-      // Decrypt API key if present
       if (configData.apiKey) {
         try {
           configData.apiKey = await encryptionService.decryptApiKey(configData.apiKey);
@@ -206,28 +221,30 @@ class SecureIntegrationService {
 
       return { data: config, error: null };
     } catch (error) {
-      console.error('Error fetching integration config:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch integration config';
+      console.error('Error fetching integration config:', errorMessage);
       return { 
         data: null, 
-        error: error instanceof Error ? error.message : 'Failed to fetch integration config' 
+        error: errorMessage
       };
     }
   }
 
   async testIntegration(integrationType: string) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        throw new Error(`Authentication error: ${userError.message}`);
+      }
       if (!user) {
         throw new Error('User not authenticated');
       }
 
-      // Check rate limiting for testing
       const canProceed = await this.checkRateLimit(user.id, 'test_integration');
       if (!canProceed) {
         throw new Error('Rate limit exceeded for integration testing');
       }
 
-      // Call the secure integration proxy edge function
       const { data, error } = await supabase.functions.invoke('secure-integration-proxy', {
         body: {
           integrationType,
@@ -236,23 +253,26 @@ class SecureIntegrationService {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(`Function invocation error: ${error.message}`);
+      }
       
       await this.logAuditEvent('integration_tested', integrationType, {
-        success: data.success
+        success: data?.success || false
       });
       
       return { 
-        success: data.success, 
-        message: data.message || 'Integration test completed',
+        success: data?.success || false, 
+        message: data?.message || 'Integration test completed',
         error: null 
       };
     } catch (error) {
-      console.error('Error testing integration:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Test failed';
+      console.error('Error testing integration:', errorMessage);
       return { 
         success: false,
         message: 'Integration test failed',
-        error: error instanceof Error ? error.message : 'Test failed' 
+        error: errorMessage
       };
     }
   }

@@ -1,55 +1,81 @@
 
-interface RateLimitConfig {
+interface RateLimit {
+  requests: number;
   windowMs: number;
-  maxRequests: number;
 }
+
+export const RATE_LIMITS: Record<string, RateLimit> = {
+  INTEGRATION_SAVE: { requests: 10, windowMs: 60000 }, // 10 requests per minute
+  INTEGRATION_TEST: { requests: 5, windowMs: 60000 },  // 5 requests per minute
+  API_CALL: { requests: 100, windowMs: 60000 }         // 100 requests per minute
+};
 
 class RateLimiter {
   private requests: Map<string, number[]> = new Map();
 
-  isAllowed(key: string, config: RateLimitConfig): boolean {
+  isAllowed(key: string, limit: RateLimit): boolean {
     const now = Date.now();
-    const windowStart = now - config.windowMs;
+    const windowStart = now - limit.windowMs;
     
     if (!this.requests.has(key)) {
       this.requests.set(key, []);
     }
     
-    const keyRequests = this.requests.get(key)!;
+    const userRequests = this.requests.get(key)!;
     
-    // Remove old requests outside the window
-    const validRequests = keyRequests.filter(timestamp => timestamp > windowStart);
+    const validRequests = userRequests.filter(timestamp => timestamp > windowStart);
     this.requests.set(key, validRequests);
     
-    // Check if we're within the limit
-    if (validRequests.length >= config.maxRequests) {
+    if (validRequests.length >= limit.requests) {
       return false;
     }
     
-    // Add current request
     validRequests.push(now);
+    this.requests.set(key, validRequests);
+    
     return true;
   }
 
-  getWaitTime(key: string, config: RateLimitConfig): number {
-    const keyRequests = this.requests.get(key);
-    if (!keyRequests || keyRequests.length === 0) return 0;
+  getWaitTime(key: string, limit: RateLimit): number {
+    const now = Date.now();
+    const windowStart = now - limit.windowMs;
     
-    const oldestRequest = keyRequests[0];
-    const waitTime = config.windowMs - (Date.now() - oldestRequest);
-    return Math.max(0, waitTime);
+    if (!this.requests.has(key)) {
+      return 0;
+    }
+    
+    const userRequests = this.requests.get(key)!;
+    const validRequests = userRequests.filter(timestamp => timestamp > windowStart);
+    
+    if (validRequests.length < limit.requests) {
+      return 0;
+    }
+    
+    const oldestRequest = Math.min(...validRequests);
+    return (oldestRequest + limit.windowMs) - now;
   }
 
   reset(key: string): void {
     this.requests.delete(key);
   }
+
+  cleanup(): void {
+    const now = Date.now();
+    const maxAge = Math.max(...Object.values(RATE_LIMITS).map(limit => limit.windowMs));
+    
+    for (const [key, timestamps] of this.requests.entries()) {
+      const validTimestamps = timestamps.filter(timestamp => (now - timestamp) < maxAge);
+      if (validTimestamps.length === 0) {
+        this.requests.delete(key);
+      } else {
+        this.requests.set(key, validTimestamps);
+      }
+    }
+  }
 }
 
 export const rateLimiter = new RateLimiter();
 
-// Common rate limit configurations
-export const RATE_LIMITS = {
-  LOGIN: { windowMs: 15 * 60 * 1000, maxRequests: 5 }, // 5 attempts per 15 minutes
-  API_CALLS: { windowMs: 60 * 1000, maxRequests: 100 }, // 100 calls per minute
-  INTEGRATION_SAVE: { windowMs: 60 * 1000, maxRequests: 10 }, // 10 saves per minute
-};
+setInterval(() => {
+  rateLimiter.cleanup();
+}, 60000); // Cleanup every minute
