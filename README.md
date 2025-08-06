@@ -3,7 +3,7 @@
 
 # 🇮🇳 SafiNet – Cyber Sentinel Hub
 
-[Visit the web App](safinet-soc-dashboard.vercel.app)
+[Visit the web App](https://safinet-soc-dashboard.vercel.app)
 
 **SafiNet** is a production-grade cybersecurity web app built for Indian cyber intelligence teams and private organizations. It enables real-time threat tracking, analyst workflow automation, and structured incident response — all from a unified, secure interface.
 
